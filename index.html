@@ -6,7 +6,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@1,600;1,700&family=Inter:wght@400;600&display=swap">
 <style>
-/* Layout: full-bleed 3D canvas, HUD pinned to the edges, one centered overlay card for menus. Single dark arcade look by design. */
+/* Layout: full-bleed 3D canvas, HUD pinned to the edges, one centered overlay card for menus. Single dark arcade look by design; each stadium sets its own 3D palette. */
 :root{
   --bg:#070816; --panel:rgba(10,12,30,.82); --line:rgba(170,180,255,.18);
   --ink:#eef0ff; --dim:#9aa1c9; --teal:#2ee6c8; --coral:#ff6a4d; --gold:#ffcf5a;
@@ -96,9 +96,10 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
     <div class="top"><p class="eyebrow" id="mEyebrow">1v1 · Rocket-car soccer</p><div class="acct" id="account"></div></div>
     <h1 id="mTitle">Nitro<br>Kickoff</h1>
     <div class="final" id="mFinal" hidden><span class="a" id="fA">0</span><i>–</i><span class="b" id="fB">0</span></div>
-    <p class="lede" id="mLede">Drive, jump and boost your car into a ball the size of a truck. Outscore the bot before the clock runs out. A tie goes to golden-goal overtime.</p>
+    <p class="lede" id="mLede">Drive, jump and boost your car into a ball the size of a truck. Outscore the bot before the clock runs out. Pick a stadium: the neon dome, a farm ground packed with potato fans, or a slippery ice rink.</p>
     <div class="opts">
       <div class="opt"><span>Opponent</span><div class="seg" id="segDiff"><button id="dRookie" data-v="rookie">Rookie</button><button id="dPro" data-v="pro" class="on">Pro</button><button id="dAce" data-v="ace">Ace</button></div></div>
+      <div class="opt"><span>Stadium</span><div class="seg" id="segMap"><button id="mNeon" data-v="neon" class="on">Neon Dome</button><button id="mSpud" data-v="spud">Spud Bowl</button><button id="mFrost" data-v="frost">Frost Rink</button></div></div>
       <div class="opt"><span>Match length</span><div class="seg" id="segLen"><button id="l2" data-v="120">2 min</button><button id="l3" data-v="180" class="on">3 min</button><button id="l5" data-v="300">5 min</button></div></div>
     </div>
     <button class="go" id="play">Kick off</button>
@@ -155,99 +156,313 @@ function resize() {
 }
 addEventListener('resize', resize); resize();
 
-scene.add(new THREE.HemisphereLight(0xc4ccff, 0x1a1636, 0.75));
+const hemi = new THREE.HemisphereLight(0xc4ccff, 0x1a1636, 0.75); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffffff, 0.85);
 sun.position.set(30, 70, 25); sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 80, bottom: -80, near: 10, far: 200 });
 scene.add(sun);
 
-/* field */
-function fieldTexture() {
+/* ---------- maps ----------
+   grip: how hard tyres hold sideways · coast: slow-down with no throttle
+   roll: ball rolling friction · bounce: ball bounce off the floor */
+const MAPS = {
+  neon: { name: 'Neon Dome', sky: 0x070816, fog: [140, 320], hemi: [0xc4ccff, 0x1a1636, 0.75], sun: [0xffffff, 0.85],
+    stripes: ['#151933', '#1a1f3d'], line: 'rgba(238,240,255,0.5)', tint: 0.08, ground: 0x0b0d22, glass: 0x8090ff, edge: 0x5a64b8,
+    stand: 0x1c2040, rim: 0x2ee6c8, fans: 'people', sky2: 'stars', grip: 11, coast: 10, roll: 0.5, bounce: 0.62, ball: 'geo', screen: '#0b0d22' },
+  spud: { name: 'Spud Bowl', sky: 0x9fd4ff, fog: [200, 420], hemi: [0xffffff, 0x6d8f3c, 0.95], sun: [0xfff0d0, 1.15],
+    stripes: ['#3d7a2a', '#479033'], line: 'rgba(255,255,255,0.85)', tint: 0.035, ground: 0x6f5232, glass: 0xffffff, edge: 0xb8915a,
+    stand: 0x7a5a36, rim: 0xffcf5a, fans: 'potato', sky2: 'clouds', grip: 11, coast: 10, roll: 0.9, bounce: 0.5, ball: 'potato', screen: '#2d4a1c' },
+  frost: { name: 'Frost Rink', sky: 0x17243c, fog: [110, 280], hemi: [0xdff2ff, 0x3a4d70, 0.9], sun: [0xe8f4ff, 0.95],
+    stripes: ['#d3e8f6', '#dcedf9'], line: 'rgba(30,80,150,0.55)', tint: 0.12, ground: 0xe4eef6, glass: 0xbfe6ff, edge: 0x86b4da,
+    stand: 0x2a3a58, rim: 0xbfe6ff, fans: 'people', sky2: 'snow', grip: 3.2, coast: 3, roll: 0.12, bounce: 0.55, ball: 'geo', screen: '#10203a' },
+};
+let MAP = MAPS.neon, mapId = 'neon';
+const world = new THREE.Group(); scene.add(world);
+const W = o => { world.add(o); return o; };
+
+function fieldTexture(m) {
   const c = document.createElement('canvas'); c.width = 512; c.height = 768;
   const g = c.getContext('2d'), s = 512 / 80;
-  for (let i = 0; i < 12; i++) { g.fillStyle = i % 2 ? '#151933' : '#1a1f3d'; g.fillRect(0, i * 64, 512, 64); }
-  g.fillStyle = 'rgba(46,230,200,0.08)'; g.fillRect(0, 0, 512, 384);
-  g.fillStyle = 'rgba(255,106,77,0.08)'; g.fillRect(0, 384, 512, 384);
-  g.strokeStyle = 'rgba(238,240,255,0.5)'; g.lineWidth = 3;
+  for (let i = 0; i < 12; i++) { g.fillStyle = m.stripes[i % 2]; g.fillRect(0, i * 64, 512, 64); }
+  if (mapId === 'frost') {  // skate scratches on the ice
+    g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1;
+    for (let i = 0; i < 160; i++) { const x = Math.random() * 512, y = Math.random() * 768, a = Math.random() * 6.3, l = 20 + Math.random() * 90; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a + .4) * l / 2, y + Math.sin(a + .4) * l / 2, x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
+  }
+  if (mapId === 'spud') {  // grass speckle
+    for (let i = 0; i < 5000; i++) { g.fillStyle = Math.random() < .5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)'; g.fillRect(Math.random() * 512, Math.random() * 768, 2, 2); }
+  }
+  g.fillStyle = `rgba(46,230,200,${m.tint})`; g.fillRect(0, 0, 512, 384);
+  g.fillStyle = `rgba(255,106,77,${m.tint})`; g.fillRect(0, 384, 512, 384);
+  g.strokeStyle = m.line; g.lineWidth = 3;
   g.strokeRect(5, 5, 502, 758);
   g.beginPath(); g.moveTo(0, 384); g.lineTo(512, 384); g.stroke();
   g.beginPath(); g.arc(256, 384, 11 * s, 0, Math.PI * 2); g.stroke();
   g.strokeRect(256 - 16 * s, 0, 32 * s, 13 * s); g.strokeRect(256 - 16 * s, 768 - 13 * s, 32 * s, 13 * s);
-  g.fillStyle = 'rgba(238,240,255,0.6)'; g.beginPath(); g.arc(256, 384, 6, 0, Math.PI * 2); g.fill();
+  if (mapId === 'spud') {  // the club crest: a potato in the centre circle
+    g.save(); g.translate(256, 384); g.rotate(-0.4); g.fillStyle = 'rgba(196,150,88,0.9)';
+    g.beginPath(); g.ellipse(0, 0, 40, 26, 0, 0, Math.PI * 2); g.fill();
+    g.fillStyle = 'rgba(110,78,40,0.8)'; for (const [x, y] of [[-18, -6], [6, 10], [20, -8], [-4, -14]]) { g.beginPath(); g.arc(x, y, 3, 0, 7); g.fill(); }
+    g.restore();
+  } else { g.fillStyle = m.line; g.beginPath(); g.arc(256, 384, 6, 0, Math.PI * 2); g.fill(); }
   const t = new THREE.CanvasTexture(c);
   t.anisotropy = renderer.capabilities.getMaxAnisotropy();
   return t;
 }
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(A.hx * 2, A.hz * 2), new THREE.MeshStandardMaterial({ map: fieldTexture(), roughness: 0.85 }));
-floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
-const outer = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: 0x0b0d22, roughness: 1 }));
-outer.rotation.x = -Math.PI / 2; outer.position.y = -0.05; scene.add(outer);
 
-/* walls */
-const glass = new THREE.MeshPhongMaterial({ color: 0x8090ff, transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false });
-const edgeMat = new THREE.LineBasicMaterial({ color: 0x5a64b8, transparent: true, opacity: 0.6 });
-function wall(w, h, d, x, y, z) {
+/* A lumpy potato: a sphere pushed in and out by a few fixed waves, so faces line up with no cracks. */
+function potatoGeo(r, sx, sy, sz, seed, detail) {
+  const geo = new THREE.IcosahedronGeometry(r, detail);
+  const p = geo.attributes.position, v = new V3();
+  for (let i = 0; i < p.count; i++) {
+    v.fromBufferAttribute(p, i).normalize();
+    const n = 1 + 0.07 * Math.sin(v.x * 3.1 + seed) * Math.cos(v.y * 2.7 + seed * 1.7) + 0.05 * Math.sin(v.z * 4.3 + seed * 0.6);
+    p.setXYZ(i, v.x * r * sx * n, v.y * r * sy * n, v.z * r * sz * n);
+  }
+  geo.computeVertexNormals();
+  return geo;
+}
+const potatoMat = () => new THREE.MeshStandardMaterial({ color: 0xc89a5c, roughness: 0.92 });
+
+/* ---------- crowd ---------- */
+const crowd = { parts: [], fans: [], excite: 0, tick: 0 };
+let quality = 2, slowT = 0;  // 2 full, 1 lower resolution, 0 lower resolution and no crowd
+const dummy = new THREE.Object3D();
+function buildCrowd(seats) {
+  crowd.parts = []; crowd.fans = seats; crowd.excite = 0;
+  const n = seats.length, col = new THREE.Color();
+  const part = (geo, mat, offs, colorOf) => {
+    const mesh = new THREE.InstancedMesh(geo, mat, n * offs.length);
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.frustumCulled = false;
+    for (let i = 0; i < n; i++) for (let k = 0; k < offs.length; k++) mesh.setColorAt(i * offs.length + k, colorOf(seats[i], k, col));
+    mesh.instanceColor.needsUpdate = true;
+    if (quality === 0) mesh.visible = false;
+    W(mesh); crowd.parts.push({ mesh, offs });
+  };
+  const white = () => new THREE.MeshLambertMaterial({ color: 0xffffff });
+  if (MAP.fans === 'potato') {
+    part(potatoGeo(0.55, 0.9, 1.35, 0.85, 2.3, 0), new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }), [[0, 0.75, 0]], (s, k, c) => c.setHSL(0.09 + Math.random() * 0.02, 0.45, 0.42 + Math.random() * 0.12));
+    part(new THREE.OctahedronGeometry(0.12, 0), new THREE.MeshBasicMaterial({ color: 0xffffff }), [[-0.17, 1.05, 0.44], [0.17, 1.05, 0.44]], (s, k, c) => c.setHex(0x111111));
+    part(new THREE.CylinderGeometry(0.3, 0.36, 0.22, 7), white(), [[0, 1.48, 0]], (s, k, c) => c.setHex(TEAM_COL[s.team]));
+  } else {
+    part(new THREE.BoxGeometry(0.8, 1.0, 0.5), white(), [[0, 0.5, 0]], (s, k, c) => Math.random() < 0.75 ? c.setHex(TEAM_COL[s.team]) : c.setHSL(Math.random(), 0.2, 0.3));
+    part(new THREE.IcosahedronGeometry(0.32, 0), white(), [[0, 1.3, 0]], (s, k, c) => c.setHSL(0.07, 0.4, 0.3 + Math.random() * 0.45));
+  }
+  placeCrowd(0, true);
+}
+function placeCrowd(time, force) {
+  const ex = crowd.excite;
+  for (const { mesh, offs } of crowd.parts) {
+    for (let i = 0; i < crowd.fans.length; i++) {
+      const s = crowd.fans[i];
+      const jump = ex > 0.02 ? ex * 1.4 * Math.abs(Math.sin(time * (7 + s.ph) + s.ph * 3)) : 0.06 * Math.sin(time * 2 + s.ph * 5);
+      const cr = Math.cos(s.rot), sr = Math.sin(s.rot);
+      for (let k = 0; k < offs.length; k++) {
+        const [ox, oy, oz] = offs[k];
+        dummy.position.set(s.x + ox * cr + oz * sr, s.y + oy + jump, s.z - ox * sr + oz * cr);
+        dummy.rotation.set(0, s.rot, 0);
+        dummy.updateMatrix(); mesh.setMatrixAt(i * offs.length + k, dummy.matrix);
+      }
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+function cheer(level) { crowd.excite = Math.max(crowd.excite, level); }
+
+/* ---------- big screens ---------- */
+const screens = [];
+let screenKey = '';
+function drawScreens() {
+  const t = Math.max(0, Math.ceil(clockT));
+  const key = score[0] + ':' + score[1] + ':' + t + ':' + overtime + ':' + mapId;
+  if (key === screenKey || !screens.length) return;
+  screenKey = key;
+  for (const sc of screens) {
+    const g = sc.ctx, w = 512, h = 200;
+    g.fillStyle = MAP.screen; g.fillRect(0, 0, w, h);
+    g.fillStyle = '#2ee6c8'; g.fillRect(0, 0, 170, h); g.fillStyle = '#ff6a4d'; g.fillRect(w - 170, 0, 170, h);
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    g.fillStyle = '#04201c'; g.font = 'italic 700 30px system-ui,sans-serif'; g.fillText('YOU', 85, 50);
+    g.font = 'italic 700 96px system-ui,sans-serif'; g.fillText(String(score[0]), 85, 125);
+    g.fillStyle = '#2a0a04'; g.font = 'italic 700 30px system-ui,sans-serif'; g.fillText('BOT', w - 85, 50);
+    g.font = 'italic 700 96px system-ui,sans-serif'; g.fillText(String(score[1]), w - 85, 125);
+    g.fillStyle = '#ffffff'; g.font = '600 56px system-ui,sans-serif';
+    g.fillText((overtime ? '+' : '') + Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'), w / 2, 92);
+    g.fillStyle = '#ffcf5a'; g.font = '600 20px system-ui,sans-serif'; g.fillText(MAP.name.toUpperCase(), w / 2, 160);
+    sc.tex.needsUpdate = true;
+  }
+}
+
+/* ---------- weather ---------- */
+let snow = null;
+function buildSky() {
+  snow = null;
+  if (MAP.sky2 === 'stars') {
+    const n = 600, p = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) {
+      const th = Math.random() * Math.PI * 2, ph = Math.random() * 1.2, r = 300;
+      p[i * 3] = Math.cos(th) * Math.cos(ph) * r; p[i * 3 + 1] = Math.sin(ph) * r + 20; p[i * 3 + 2] = Math.sin(th) * Math.cos(ph) * r;
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    W(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x8890c0, size: 1.2, fog: false })));
+  } else if (MAP.sky2 === 'clouds') {
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xb8c4d0, roughness: 1, flatShading: true, fog: false });
+    for (let i = 0; i < 14; i++) {
+      const cl = new THREE.Group(), a = (i / 14) * Math.PI * 2, r = 230 + Math.random() * 60;
+      for (let k = 0; k < 5; k++) { const b = new THREE.Mesh(new THREE.IcosahedronGeometry(8 + Math.random() * 8, 0), mat); b.position.set(k * 10 - 20, Math.random() * 5, Math.random() * 8); cl.add(b); }
+      cl.position.set(Math.cos(a) * r, 70 + Math.random() * 40, Math.sin(a) * r); cl.lookAt(0, cl.position.y, 0);
+      W(cl);
+    }
+  } else if (MAP.sky2 === 'snow') {
+    const n = 1800, p = new Float32Array(n * 3);
+    for (let i = 0; i < n; i++) { p[i * 3] = (Math.random() - .5) * 200; p[i * 3 + 1] = Math.random() * 80; p[i * 3 + 2] = (Math.random() - .5) * 240; }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+    snow = W(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xffffff, size: 0.45, transparent: true, opacity: 0.85, depthWrite: false })));
+  }
+}
+function updateSnow(dt, time) {
+  if (!snow) return;
+  const p = snow.geometry.attributes.position, a = p.array;
+  for (let i = 0; i < a.length; i += 3) {
+    a[i + 1] -= (5 + (i % 7)) * dt; a[i] += Math.sin(time + i) * 1.2 * dt;
+    if (a[i + 1] < 0) a[i + 1] = 80;
+  }
+  p.needsUpdate = true;
+}
+
+/* ---------- arena ---------- */
+function wall(glass, edgeMat, w, h, d, x, y, z) {
   const geo = new THREE.BoxGeometry(w, h, d);
-  const m = new THREE.Mesh(geo, glass); m.position.set(x, y, z); scene.add(m);
-  const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat); e.position.copy(m.position); scene.add(e);
+  const m = W(new THREE.Mesh(geo, glass)); m.position.set(x, y, z);
+  const e = W(new THREE.LineSegments(new THREE.EdgesGeometry(geo), edgeMat)); e.position.copy(m.position);
 }
-wall(0.4, A.h, A.hz * 2, -A.hx - 0.2, A.h / 2, 0);
-wall(0.4, A.h, A.hz * 2, A.hx + 0.2, A.h / 2, 0);
-for (const sz of [-1, 1]) {
-  const sideW = A.hx - A.gw / 2;
-  wall(sideW, A.h, 0.4, -(A.gw / 2 + sideW / 2), A.h / 2, sz * (A.hz + 0.2));
-  wall(sideW, A.h, 0.4, (A.gw / 2 + sideW / 2), A.h / 2, sz * (A.hz + 0.2));
-  wall(A.gw, A.h - A.gh, 0.4, 0, A.gh + (A.h - A.gh) / 2, sz * (A.hz + 0.2));
-}
-/* glowing floor trim */
 function strip(w, d, x, z, col) {
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, 0.25, d), new THREE.MeshBasicMaterial({ color: col }));
-  m.position.set(x, 0.12, z); scene.add(m);
+  const m = W(new THREE.Mesh(new THREE.BoxGeometry(w, 0.25, d), new THREE.MeshBasicMaterial({ color: col })));
+  m.position.set(x, 0.12, z);
 }
-strip(0.35, A.hz, -A.hx, -A.hz / 2, TEAM_COL[0]); strip(0.35, A.hz, A.hx, -A.hz / 2, TEAM_COL[0]);
-strip(0.35, A.hz, -A.hx, A.hz / 2, TEAM_COL[1]); strip(0.35, A.hz, A.hx, A.hz / 2, TEAM_COL[1]);
-
 /* goals: z = -hz belongs to team 0 (you), z = +hz to team 1 (bot) */
 function goal(sz, col) {
   const mat = new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.9 });
   const zz = sz * A.hz;
   for (const sx of [-1, 1]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, A.gh, 10), mat);
-    post.position.set(sx * A.gw / 2, A.gh / 2, zz); scene.add(post);
+    const post = W(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, A.gh, 10), mat));
+    post.position.set(sx * A.gw / 2, A.gh / 2, zz);
   }
-  const bar = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, A.gw, 10), mat);
-  bar.rotation.z = Math.PI / 2; bar.position.set(0, A.gh, zz); scene.add(bar);
+  const bar = W(new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, A.gw, 10), mat));
+  bar.rotation.z = Math.PI / 2; bar.position.set(0, A.gh, zz);
   const net = new THREE.MeshBasicMaterial({ color: col, wireframe: true, transparent: true, opacity: 0.35 });
-  const back = new THREE.Mesh(new THREE.PlaneGeometry(A.gw, A.gh, 12, 6), net);
-  back.position.set(0, A.gh / 2, sz * (A.hz + A.gd)); scene.add(back);
+  const back = W(new THREE.Mesh(new THREE.PlaneGeometry(A.gw, A.gh, 12, 6), net));
+  back.position.set(0, A.gh / 2, sz * (A.hz + A.gd));
   for (const sx of [-1, 1]) {
-    const side = new THREE.Mesh(new THREE.PlaneGeometry(A.gd, A.gh, 6, 6), net);
-    side.rotation.y = Math.PI / 2; side.position.set(sx * A.gw / 2, A.gh / 2, sz * (A.hz + A.gd / 2)); scene.add(side);
+    const side = W(new THREE.Mesh(new THREE.PlaneGeometry(A.gd, A.gh, 6, 6), net));
+    side.rotation.y = Math.PI / 2; side.position.set(sx * A.gw / 2, A.gh / 2, sz * (A.hz + A.gd / 2));
   }
-  const top = new THREE.Mesh(new THREE.PlaneGeometry(A.gw, A.gd, 12, 6), net);
-  top.rotation.x = Math.PI / 2; top.position.set(0, A.gh, sz * (A.hz + A.gd / 2)); scene.add(top);
-  const gfloor = new THREE.Mesh(new THREE.PlaneGeometry(A.gw, A.gd), new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.15, roughness: 1 }));
-  gfloor.rotation.x = -Math.PI / 2; gfloor.position.set(0, 0.01, sz * (A.hz + A.gd / 2)); scene.add(gfloor);
+  const top = W(new THREE.Mesh(new THREE.PlaneGeometry(A.gw, A.gd, 12, 6), net));
+  top.rotation.x = Math.PI / 2; top.position.set(0, A.gh, sz * (A.hz + A.gd / 2));
+  const gfloor = W(new THREE.Mesh(new THREE.PlaneGeometry(A.gw, A.gd), new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.15, roughness: 1 })));
+  gfloor.rotation.x = -Math.PI / 2; gfloor.position.set(0, 0.01, sz * (A.hz + A.gd / 2));
 }
-goal(-1, TEAM_COL[0]); goal(1, TEAM_COL[1]);
 
-/* light towers outside the arena */
-for (const [x, z] of [[-60, -80], [60, -80], [-60, 80], [60, 80]]) {
-  const t = new THREE.Mesh(new THREE.BoxGeometry(2, 50, 2), new THREE.MeshStandardMaterial({ color: 0x1a1d3a }));
-  t.position.set(x, 25, z); scene.add(t);
-  const lamp = new THREE.Mesh(new THREE.BoxGeometry(8, 3, 1), new THREE.MeshBasicMaterial({ color: 0xfff2d0 }));
-  lamp.position.set(x * 0.97, 50, z * 0.97); lamp.lookAt(0, 0, 0); scene.add(lamp);
-}
-/* stars */
-{
-  const n = 600, p = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) {
-    const th = Math.random() * Math.PI * 2, ph = Math.random() * 1.2, r = 260;
-    p[i * 3] = Math.cos(th) * Math.cos(ph) * r; p[i * 3 + 1] = Math.sin(ph) * r + 20; p[i * 3 + 2] = Math.sin(th) * Math.cos(ph) * r;
+/* Stands: 8 stepped rows on every side, filled with fans facing the pitch. */
+const ROWS = 8, ROW_D = 2.2, ROW_H = 1.5;
+function buildStands() {
+  const standMat = new THREE.MeshStandardMaterial({ color: MAP.stand, roughness: 0.9 });
+  const rimMat = new THREE.MeshBasicMaterial({ color: MAP.rim });
+  const seats = [];
+  const sideX = A.hx + 5, endZ = A.hz + A.gd + 5, sideLen = 2 * endZ, endLen = 2 * sideX;
+  for (let r = 0; r < ROWS; r++) {
+    const h = 1.2 + r * ROW_H, off = r * ROW_D;
+    for (const s of [-1, 1]) {
+      const sb = W(new THREE.Mesh(new THREE.BoxGeometry(ROW_D, h, sideLen), standMat)); sb.position.set(s * (sideX + off), h / 2, 0); sb.receiveShadow = true;
+      const eb = W(new THREE.Mesh(new THREE.BoxGeometry(endLen, h, ROW_D), standMat)); eb.position.set(0, h / 2, s * (endZ + off)); eb.receiveShadow = true;
+      for (let z = -sideLen / 2 + 1; z < sideLen / 2; z += 2) if (Math.random() < 0.8) seats.push({ x: s * (sideX + off) + (Math.random() - .5) * .3, y: h, z: z + (Math.random() - .5) * .4, rot: s > 0 ? -Math.PI / 2 : Math.PI / 2, team: z < 0 ? 0 : 1, ph: Math.random() * 3 });
+      for (let x = -endLen / 2 + 1; x < endLen / 2; x += 2) if (Math.random() < 0.8) seats.push({ x: x + (Math.random() - .5) * .4, y: h, z: s * (endZ + off) + (Math.random() - .5) * .3, rot: s > 0 ? Math.PI : 0, team: s < 0 ? 0 : 1, ph: Math.random() * 3 });
+    }
   }
-  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-  scene.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x8890c0, size: 1.2, fog: false })));
+  /* the glowing rim along the front of every stand */
+  for (const s of [-1, 1]) {
+    const a = W(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, sideLen), rimMat)); a.position.set(s * (sideX - ROW_D / 2), 1.3, 0);
+    const b = W(new THREE.Mesh(new THREE.BoxGeometry(endLen, 0.3, 0.3), rimMat)); b.position.set(0, 1.3, s * (endZ - ROW_D / 2));
+  }
+  buildCrowd(seats);
+  /* big screens above the end stands */
+  screens.length = 0; screenKey = '';
+  const backZ = endZ + ROWS * ROW_D + 2;
+  for (const s of [-1, 1]) {
+    const c = document.createElement('canvas'); c.width = 512; c.height = 200;
+    const tex = new THREE.CanvasTexture(c);
+    const scr = W(new THREE.Mesh(new THREE.PlaneGeometry(34, 13.3), new THREE.MeshBasicMaterial({ map: tex, fog: false })));
+    scr.position.set(0, 26, s * backZ); scr.rotation.y = s > 0 ? Math.PI : 0;
+    const frame = W(new THREE.Mesh(new THREE.BoxGeometry(36, 15, 1), new THREE.MeshStandardMaterial({ color: 0x15172a })));
+    frame.position.set(0, 26, s * (backZ + 0.6));
+    for (const px of [-12, 12]) { const leg = W(new THREE.Mesh(new THREE.BoxGeometry(1, 20, 1), frame.material)); leg.position.set(px, 10, s * (backZ + 0.6)); }
+    screens.push({ ctx: c.getContext('2d'), tex });
+  }
+  /* floodlight towers in the corners */
+  for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const tx = x * (sideX + ROWS * ROW_D + 4), tz = z * (endZ + ROWS * ROW_D + 4);
+    const t = W(new THREE.Mesh(new THREE.BoxGeometry(2, 50, 2), new THREE.MeshStandardMaterial({ color: 0x2a2d45 }))); t.position.set(tx, 25, tz);
+    const lamp = W(new THREE.Mesh(new THREE.BoxGeometry(9, 4, 1), new THREE.MeshBasicMaterial({ color: 0xfff2d0, fog: false })));
+    lamp.position.set(tx * 0.97, 51, tz * 0.97); lamp.lookAt(0, 0, 0);
+  }
+}
+
+/* Spud Bowl: giant potato mascots in the corners, wearing the team colours. */
+function buildMascots() {
+  const sideX = A.hx + 5, endZ = A.hz + A.gd + 5;
+  for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    const g = new THREE.Group(), team = sz < 0 ? 0 : 1;
+    const body = new THREE.Mesh(potatoGeo(4, 0.95, 1.4, 0.85, sx * 3 + sz, 3), potatoMat()); body.position.y = 5.4; body.castShadow = true; g.add(body);
+    for (const ex of [-1.2, 1.2]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.75, 12, 10), new THREE.MeshStandardMaterial({ color: 0xffffff })); eye.position.set(ex, 7, 3.1); g.add(eye);
+      const pup = new THREE.Mesh(new THREE.SphereGeometry(0.38, 10, 8), new THREE.MeshBasicMaterial({ color: 0x111111 })); pup.position.set(ex, 7, 3.75); g.add(pup);
+    }
+    const smile = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.22, 8, 20, Math.PI), new THREE.MeshBasicMaterial({ color: 0x3a1c0c })); smile.position.set(0, 5.2, 3.3); smile.rotation.z = Math.PI; g.add(smile);
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 2.6, 1.4, 16), new THREE.MeshStandardMaterial({ color: TEAM_COL[team] })); cap.position.y = 10.6; g.add(cap);
+    const brim = new THREE.Mesh(new THREE.BoxGeometry(3, 0.25, 2.2), cap.material); brim.position.set(0, 10.1, 2.2); g.add(brim);
+    g.position.set(sx * (sideX + ROWS * ROW_D + 3), 0, sz * (endZ - 1));
+    g.lookAt(0, 0, g.position.z * 0.6);
+    W(g);
+  }
+}
+
+function disposeWorld() {
+  world.traverse(o => {
+    if (o.geometry) o.geometry.dispose();
+    if (o.material) { for (const m of [].concat(o.material)) { if (m.map) m.map.dispose(); m.dispose(); } }
+  });
+  world.clear();
+}
+function buildMap(id) {
+  mapId = MAPS[id] ? id : 'neon'; MAP = MAPS[mapId];
+  disposeWorld();
+  scene.background = new THREE.Color(MAP.sky);
+  scene.fog.color.setHex(MAP.sky); scene.fog.near = MAP.fog[0]; scene.fog.far = MAP.fog[1];
+  hemi.color.setHex(MAP.hemi[0]); hemi.groundColor.setHex(MAP.hemi[1]); hemi.intensity = MAP.hemi[2];
+  sun.color.setHex(MAP.sun[0]); sun.intensity = MAP.sun[1];
+  const floor = W(new THREE.Mesh(new THREE.PlaneGeometry(A.hx * 2, A.hz * 2), new THREE.MeshStandardMaterial({ map: fieldTexture(MAP), roughness: mapId === 'frost' ? 0.25 : 0.85, metalness: mapId === 'frost' ? 0.1 : 0 })));
+  floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+  const outer = W(new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshStandardMaterial({ color: MAP.ground, roughness: 1 })));
+  outer.rotation.x = -Math.PI / 2; outer.position.y = -0.05; outer.receiveShadow = true;
+  const glass = new THREE.MeshPhongMaterial({ color: MAP.glass, transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false });
+  const edgeMat = new THREE.LineBasicMaterial({ color: MAP.edge, transparent: true, opacity: 0.6 });
+  wall(glass, edgeMat, 0.4, A.h, A.hz * 2, -A.hx - 0.2, A.h / 2, 0);
+  wall(glass, edgeMat, 0.4, A.h, A.hz * 2, A.hx + 0.2, A.h / 2, 0);
+  for (const sz of [-1, 1]) {
+    const sideW = A.hx - A.gw / 2;
+    wall(glass, edgeMat, sideW, A.h, 0.4, -(A.gw / 2 + sideW / 2), A.h / 2, sz * (A.hz + 0.2));
+    wall(glass, edgeMat, sideW, A.h, 0.4, (A.gw / 2 + sideW / 2), A.h / 2, sz * (A.hz + 0.2));
+    wall(glass, edgeMat, A.gw, A.h - A.gh, 0.4, 0, A.gh + (A.h - A.gh) / 2, sz * (A.hz + 0.2));
+  }
+  strip(0.35, A.hz, -A.hx, -A.hz / 2, TEAM_COL[0]); strip(0.35, A.hz, A.hx, -A.hz / 2, TEAM_COL[0]);
+  strip(0.35, A.hz, -A.hx, A.hz / 2, TEAM_COL[1]); strip(0.35, A.hz, A.hx, A.hz / 2, TEAM_COL[1]);
+  goal(-1, TEAM_COL[0]); goal(1, TEAM_COL[1]);
+  buildStands();
+  if (mapId === 'spud') buildMascots();
+  buildSky();
+  if (typeof setBallStyle === 'function') setBallStyle(MAP.ball);
+  try { localStorage.setItem('kickoff.map', mapId); } catch (e) {}
 }
 
 /* ---------- particles ---------- */
@@ -298,6 +513,15 @@ ballMesh.add(new THREE.LineSegments(new THREE.EdgesGeometry(ballGeo), new THREE.
 const ballRing = new THREE.Mesh(new THREE.RingGeometry(BR * 0.75, BR, 36), new THREE.MeshBasicMaterial({ color: 0xffcf5a, transparent: true, opacity: 0.5, depthWrite: false }));
 ballRing.rotation.x = -Math.PI / 2; scene.add(ballRing);
 const ball = { pos: new V3(0, BR, 0), vel: new V3(), visible: true };
+const geoBall = { geo: ballGeo, mat: ballMesh.material }, ballEdges = ballMesh.children[0];
+let potatoBall = null;
+/* On Spud Bowl the ball is a giant potato (it still bounces like a ball). */
+function setBallStyle(style) {
+  if (style === 'potato') {
+    if (!potatoBall) potatoBall = { geo: potatoGeo(BR, 1.18, 0.9, 0.95, 4.2, 3), mat: potatoMat() };
+    ballMesh.geometry = potatoBall.geo; ballMesh.material = potatoBall.mat; ballEdges.visible = false;
+  } else { ballMesh.geometry = geoBall.geo; ballMesh.material = geoBall.mat; ballEdges.visible = true; }
+}
 
 /* ---------- cars ---------- */
 function carMesh(col) {
@@ -353,7 +577,7 @@ for (const sx of [-1, 1]) {
 addPad(0, -28, false); addPad(0, 28, false); addPad(0, -46, false); addPad(0, 46, false);
 
 /* ---------- audio ---------- */
-let AC = null, master = null, boostGain = null, muted = false;
+let AC = null, master = null, boostGain = null, crowdGain = null, muted = false;
 function initAudio() {
   if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
   try {
@@ -365,6 +589,10 @@ function initAudio() {
     const bp = AC.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 0.8;
     boostGain = AC.createGain(); boostGain.gain.value = 0;
     src.connect(bp); bp.connect(boostGain); boostGain.connect(master); src.start();
+    const src2 = AC.createBufferSource(); src2.buffer = buf; src2.loop = true; src2.playbackRate.value = 0.7;
+    const lp = AC.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 650;
+    crowdGain = AC.createGain(); crowdGain.gain.value = 0;
+    src2.connect(lp); lp.connect(crowdGain); crowdGain.connect(master); src2.start();
   } catch (e) { AC = null; }
 }
 function tone(f, dur, type, vol, f2) {
@@ -402,7 +630,7 @@ addEventListener('keydown', e => {
   if (e.repeat) return;
   keys[e.code] = true;
   if (e.code === 'KeyC') { ballCam = !ballCam; setCamLabel(); }
-  if (e.code === 'KeyM') { muted = !muted; if (boostGain) boostGain.gain.value = 0; }
+  if (e.code === 'KeyM') { muted = !muted; if (boostGain) boostGain.gain.value = 0; if (crowdGain) crowdGain.gain.value = 0; }
   if ((e.code === 'KeyP' || e.code === 'Escape') && inMatch()) togglePause();
 });
 addEventListener('keyup', e => { keys[e.code] = false; });
@@ -521,9 +749,9 @@ function stepCar(c, dt) {
     if (I.throttle) {
       if (I.throttle * sp2 < 0) a = I.throttle * 50;
       else if (Math.abs(sp2) < maxDrive) a = I.throttle * 26;
-    } else a = -Math.sign(sp2) * Math.min(Math.abs(sp2) / dt, 10);
+    } else a = -Math.sign(sp2) * Math.min(Math.abs(sp2) / dt, MAP.coast);
     c.vel.x += sy * a * dt; c.vel.z += cy * a * dt;
-    const lat = c.vel.x * -cy + c.vel.z * sy, grip = Math.min(1, 11 * dt);
+    const lat = c.vel.x * -cy + c.vel.z * sy, grip = Math.min(1, MAP.grip * dt);
     c.vel.x -= -cy * lat * grip; c.vel.z -= sy * lat * grip;
     c.vel.y = 0;
     if (jp) { c.vel.y = 11.5; c.onGround = false; c.airT = 0; c.canDodge = true; c.pos.y += 0.05; if (c === player) sfx.jump(); }
@@ -574,7 +802,7 @@ function stepBall(dt) {
   v.y -= G * 0.8 * dt;
   v.multiplyScalar(1 - 0.05 * dt);
   p.addScaledVector(v, dt);
-  if (p.y < BR) { p.y = BR; if (v.y < 0) { sfx.bounce(-v.y); v.y = -v.y * 0.62; if (v.y < 1.5) v.y = 0; } const f = 1 - 0.5 * dt; v.x *= f; v.z *= f; }
+  if (p.y < BR) { p.y = BR; if (v.y < 0) { sfx.bounce(-v.y); v.y = -v.y * MAP.bounce; if (v.y < 1.5) v.y = 0; } const f = 1 - MAP.roll * dt; v.x *= f; v.z *= f; }
   if (p.y > A.h - BR) { p.y = A.h - BR; sfx.bounce(v.y); v.y = -Math.abs(v.y) * 0.7; }
   if (Math.abs(p.x) > A.hx - BR) { p.x = Math.sign(p.x) * (A.hx - BR); sfx.bounce(Math.abs(v.x)); v.x = -v.x * 0.75; }
   if (Math.abs(p.z) > A.hz) {
@@ -733,6 +961,7 @@ function scored(team) {
     if (L < 28) { d.y = 0; d.normalize(); c.vel.addScaledVector(d, (28 - L) * 1.4); c.vel.y = 10; c.onGround = false; c.airT = 2; c.canDodge = false; }
   }
   ball.visible = false;
+  cheer(1);
   if (!inMatch()) { goalT = 2.2; return; }
   score[team]++; sfx.goal();
   flash(team === 0 ? 'GOAL!' : 'BOT SCORES', team === 0 ? 'var(--teal)' : 'var(--coral)', 2000);
@@ -756,7 +985,7 @@ $('quit').onclick = () => {
   state = 'menu'; player.speedMul = bot.speedMul = 0.92;
   $('mEyebrow').textContent = '1v1 · Rocket-car soccer'; $('mTitle').innerHTML = 'Nitro<br>Kickoff';
   $('mFinal').hidden = true; $('play').textContent = 'Kick off';
-  $('mLede').textContent = 'Drive, jump and boost your car into a ball the size of a truck. Outscore the bot before the clock runs out. A tie goes to golden-goal overtime.';
+  $('mLede').textContent = 'Drive, jump and boost your car into a ball the size of a truck. Outscore the bot before the clock runs out. Pick a stadium: the neon dome, a farm ground packed with potato fans, or a slippery ice rink.';
   $('menu').hidden = false; resetPositions(); syncTouchUi();
 };
 document.addEventListener('visibilitychange', () => { if (document.hidden && inMatch() && !paused) togglePause(); });
@@ -769,6 +998,7 @@ function seg(id, cb) {
   });
 }
 seg('segDiff', v => { difficulty = v; });
+seg('segMap', v => buildMap(v));
 seg('segLen', v => { matchLen = +v; if (!inMatch()) { clockT = matchLen; updateHud(); } });
 $('play').onclick = startMatch;
 
@@ -805,6 +1035,7 @@ function tick(dt) {
     stepBall(dt);
     for (const c of cars) carBall(c);
     if (Math.abs(ball.pos.z) > A.hz + BR) scored(ball.pos.z > 0 ? 0 : 1);
+    else if (Math.abs(ball.pos.z) > A.hz - 16 && Math.abs(ball.pos.x) < 16 && ball.vel.lengthSq() > 324) cheer(0.4);  // a shot on goal: the crowd stands up
   }
   stepPads(dt);
   for (const c of cars) {
@@ -889,6 +1120,11 @@ function updateVisuals(dt, time) {
     if (p.orb) { p.orb.visible = on; p.orb.position.y = 1.4 + Math.sin(time * 2 + p.z) * 0.25; p.orb.rotation.y += dt * 1.5; }
   }
   updateParticles(dt);
+  crowd.excite = Math.max(0, crowd.excite - dt * 0.3);
+  if (crowd.excite > 0.02 || (crowd.tick++ % 6) === 0) placeCrowd(time);
+  updateSnow(dt, time);
+  drawScreens();
+  if (crowdGain) crowdGain.gain.value = muted ? 0 : 0.02 + crowd.excite * 0.22;
   if (boostGain && !muted) boostGain.gain.value = player.boosting && inMatch() && !paused ? 0.12 : 0;
   updateCamera(dt);
   if (state === 'play' || state === 'goal') updateHud();
@@ -896,8 +1132,21 @@ function updateVisuals(dt, time) {
 }
 
 /* ---------- loop ---------- */
+let savedMap = 'neon';
+try { savedMap = localStorage.getItem('kickoff.map') || 'neon'; } catch (e) {}
+buildMap(savedMap);
+for (const b of $('segMap').children) b.classList.toggle('on', b.dataset.v === mapId);
 resetPositions(); player.speedMul = bot.speedMul = 0.92; updateHud(); setCamLabel(); syncTouchUi();
 let last = performance.now(), acc = 0;
+/* Automatic quality: if frames stay slow for a few seconds, draw at a lower resolution, then hide the crowd. */
+function checkQuality(dt) {
+  if (quality === 0 || document.hidden) return;
+  slowT = dt > 1 / 32 ? slowT + dt : Math.max(0, slowT - dt * 0.5);
+  if (slowT < 4) return;
+  slowT = 0; quality--;
+  if (quality === 1) { renderer.setPixelRatio(1); resize(); }
+  else { for (const pt of crowd.parts) pt.mesh.visible = false; renderer.shadowMap.enabled = false; }
+}
 function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
@@ -905,6 +1154,7 @@ function frame(now) {
     acc += dt;
     while (acc >= STEP) { tick(STEP); acc -= STEP; }
     updateVisuals(dt, now / 1000);
+    checkQuality(dt);
   }
   renderer.render(scene, camera);
 }
