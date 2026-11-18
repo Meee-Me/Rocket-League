@@ -4,6 +4,16 @@ A 1v1 rocket-car soccer game that runs in the browser. Drive, jump, dodge and bo
 
 Open `index.html` in any modern browser to play. It is a single file and needs no build step; Three.js loads from cdnjs.
 
+## Deluxe account
+
+Nitro Kickoff is a Deluxe Games website and signs in with Deluxe Main (the button on the start screen).
+Signed in, your match record (wins, losses and goals) is saved to your Deluxe account. Guests keep it in
+the browser, and it moves into the account when they sign in.
+
+Deluxe Main lets it sign in only from **https://nitro-kickoff.vercel.app**. Deploy this repository on
+Vercel as a project named `nitro-kickoff` (no build step). If Vercel gives it a different address, change
+it in Deluxe Main's `worker/apps.js` and `public/deluxe.js`.
+
 ## Controls
 
 | Action | Keyboard | Gamepad |

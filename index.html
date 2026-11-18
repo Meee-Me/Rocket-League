@@ -1,6 +1,8 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Nitro Kickoff</title>
+<link rel="icon" href="https://deluxe-main.vercel.app/icons/kickoff.svg">
+<link rel="apple-touch-icon" href="https://deluxe-main.vercel.app/icons/kickoff-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@1,600;1,700&family=Inter:wght@400;600&display=swap">
 <style>
@@ -49,6 +51,10 @@ h1{margin:0;font-family:var(--display);font-style:italic;font-weight:700;text-tr
 .go{align-self:flex-start;background:var(--gold);color:#241900;border:0;border-radius:10px;font:700 italic 22px var(--display);text-transform:uppercase;letter-spacing:.06em;padding:14px 34px;cursor:pointer;box-shadow:0 8px 30px rgba(255,207,90,.25)}
 .go:hover{filter:brightness(1.08)}
 button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.acct{position:relative;min-height:38px}
+.record{margin:0;font-size:13px;color:var(--dim);font-variant-numeric:tabular-nums}
+.record b{color:var(--ink);font-weight:600}
 .keys{display:grid;grid-template-columns:auto 1fr;gap:7px 16px;margin:0;font-size:13px;border-top:1px solid var(--line);padding-top:16px}
 .keys dt{color:var(--ink);white-space:nowrap}
 .keys dd{margin:0;color:var(--dim)}
@@ -87,7 +93,7 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
 
 <div class="overlay" id="menu">
   <div class="card">
-    <p class="eyebrow" id="mEyebrow">1v1 · Rocket-car soccer</p>
+    <div class="top"><p class="eyebrow" id="mEyebrow">1v1 · Rocket-car soccer</p><div class="acct" id="account"></div></div>
     <h1 id="mTitle">Nitro<br>Kickoff</h1>
     <div class="final" id="mFinal" hidden><span class="a" id="fA">0</span><i>–</i><span class="b" id="fB">0</span></div>
     <p class="lede" id="mLede">Drive, jump and boost your car into a ball the size of a truck. Outscore the bot before the clock runs out. A tie goes to golden-goal overtime.</p>
@@ -96,6 +102,7 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
       <div class="opt"><span>Match length</span><div class="seg" id="segLen"><button id="l2" data-v="120">2 min</button><button id="l3" data-v="180" class="on">3 min</button><button id="l5" data-v="300">5 min</button></div></div>
     </div>
     <button class="go" id="play">Kick off</button>
+    <p class="record" id="record">No matches played yet.</p>
     <dl class="keys">
       <dt><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dt><dd>Drive and steer (arrow keys work too)</dd>
       <dt><kbd>Space</kbd></dt><dd>Jump. Press again in the air to double jump, or hold a direction to dodge</dd>
@@ -116,6 +123,7 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://deluxe-main.vercel.app/deluxe.js" data-app="kickoff"></script>
 <script>
 (() => {
 'use strict';
@@ -630,6 +638,53 @@ function stepPads(dt) {
   }
 }
 
+/* ---------- match record (Deluxe account, or this browser for guests) ---------- */
+const REC_KEY = 'kickoff.record';
+const D = window.Deluxe || null;
+const blankRecord = () => ({ played: 0, wins: 0, losses: 0, goalsFor: 0, goalsAgainst: 0 });
+let record = blankRecord();
+function localRecord() { try { return Object.assign(blankRecord(), JSON.parse(localStorage.getItem(REC_KEY) || 'null') || {}); } catch (e) { return blankRecord(); } }
+function saveLocal(r) { try { localStorage.setItem(REC_KEY, JSON.stringify(r)); } catch (e) {} }
+function clearLocal() { try { localStorage.removeItem(REC_KEY); } catch (e) {} }
+const signedIn = () => !!(D && D.user());
+function drawRecord() {
+  const r = record, el = $('record');
+  if (!r.played) { el.textContent = signedIn() ? 'No matches played yet. Your record saves to your Deluxe account.' : 'No matches played yet.'; return; }
+  el.innerHTML = '';
+  const add = (t, b) => { if (b) { const x = document.createElement('b'); x.textContent = t; el.append(x); } else el.append(t); };
+  add(String(r.wins), true); add(r.wins === 1 ? ' win, ' : ' wins, ');
+  add(String(r.losses), true); add(r.losses === 1 ? ' loss' : ' losses');
+  add(' · goals ' + r.goalsFor + '–' + r.goalsAgainst);
+  add(signedIn() ? ' · saved to your Deluxe account' : ' · on this browser');
+}
+async function loadRecord() {
+  record = localRecord();
+  if (signedIn()) {
+    try {
+      const saved = Object.assign(blankRecord(), (await D.data.get('record')) || {});
+      const guest = localRecord();
+      if (guest.played) {  // what was played as a guest moves into the account
+        for (const k of Object.keys(saved)) saved[k] += guest[k] || 0;
+        await D.data.put('record', saved); clearLocal();
+      }
+      record = saved;
+    } catch (e) { /* offline: keep showing this browser's record */ }
+  }
+  drawRecord();
+}
+function addResult(forG, againstG) {
+  record.played++; record.goalsFor += forG; record.goalsAgainst += againstG;
+  if (forG > againstG) record.wins++; else record.losses++;
+  drawRecord();
+  if (signedIn()) D.data.put('record', record).catch(() => saveLocal(record));
+  else saveLocal(record);
+}
+if (D) {
+  D.button($('account'), { background: '#ffcf5a', color: '#241900' });
+  D.ready.then(loadRecord, loadRecord);
+  D.onChange(() => loadRecord());
+} else loadRecord();
+
 /* ---------- match flow ---------- */
 let state = 'menu', paused = false, cdT = 0, goalT = 0, clockT = 180, matchLen = 180, overtime = false;
 const score = [0, 0];
@@ -661,6 +716,7 @@ function startMatch() {
 function endMatch() {
   state = 'over';
   const won = score[0] > score[1];
+  addResult(score[0], score[1]);
   $('mEyebrow').textContent = won ? 'Full time · you win' : 'Full time · bot wins';
   $('mTitle').innerHTML = won ? 'Winner' : 'Next<br>time';
   $('fA').textContent = score[0]; $('fB').textContent = score[1]; $('mFinal').hidden = false;
