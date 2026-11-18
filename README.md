@@ -1,1 +1,28 @@
-# Rocket-League
+# Nitro Kickoff
+
+A 1v1 rocket-car soccer game that runs in the browser. Drive, jump, dodge and boost your car into a giant ball, and outscore the bot before the clock runs out. A tie goes to golden-goal overtime.
+
+Open `index.html` in any modern browser to play. It is a single file and needs no build step; Three.js loads from cdnjs.
+
+## Controls
+
+| Action | Keyboard | Gamepad |
+| --- | --- | --- |
+| Drive / reverse | W / S (or arrows) | RT / LT |
+| Steer | A / D | Left stick |
+| Jump, double jump | Space | A |
+| Dodge | Space in the air while holding a direction | A + stick |
+| Boost | Shift | B |
+| Tilt nose in the air | W / S | Left stick |
+| Ball cam | C | Y |
+| Pause | P or Esc | Start |
+| Sound on/off | M | |
+
+Touch controls appear on phones and tablets.
+
+## Features
+
+- Three bot difficulties (Rookie, Pro, Ace) and 2, 3 or 5 minute matches
+- Boost pads: big ones refill to 100, small ones add 12
+- Aerials, double jumps and dodges that hit harder
+- Goal explosions, a kickoff countdown and overtime
