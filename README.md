@@ -10,9 +10,9 @@ Nitro Kickoff is a Deluxe Games website and signs in with Deluxe Main (the butto
 Signed in, your match record (wins, losses and goals) is saved to your Deluxe account. Guests keep it in
 the browser, and it moves into the account when they sign in.
 
-Deluxe Main lets it sign in only from **https://nitro-kickoff.vercel.app**. Deploy this repository on
-Vercel as a project named `nitro-kickoff` (no build step). If Vercel gives it a different address, change
-it in Deluxe Main's `worker/apps.js` and `public/deluxe.js`.
+It lives at **https://rocket-league-blond.vercel.app** (Vercel deploys the `main` branch), and Deluxe Main
+lets it sign in only from that address. If the address changes, change it in Deluxe Main's
+`worker/apps.js` and `public/deluxe.js`.
 
 ## Controls
 
