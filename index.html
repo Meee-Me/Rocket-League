@@ -32,6 +32,14 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--ink);overflow:hi
 .boost .ring{stroke:var(--gold);stroke-dasharray:198 264;transition:stroke-dashoffset .08s linear;filter:drop-shadow(0 0 6px rgba(255,207,90,.7))}
 .boost b{font-family:var(--display);font-style:italic;font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
 .boost span{position:absolute;bottom:14px;font-size:10px;letter-spacing:.24em;color:var(--dim)}
+.boost{transition:transform .08s}
+.boost.on{transform:scale(.93)}
+.boost.on .ring{stroke-width:12;filter:drop-shadow(0 0 14px rgba(255,170,50,1))}
+.boost.empty b{color:var(--coral)}
+/* on phones the boost gauge is the boost button: hold it */
+body.tm .boost{pointer-events:auto;touch-action:none;cursor:pointer;width:136px;height:136px;border-radius:50%;background:radial-gradient(circle,rgba(255,207,90,.16),rgba(20,24,52,.55) 70%)}
+body.tm .hint{display:none}
+body.tm .boost.on{background:radial-gradient(circle,rgba(255,170,50,.45),rgba(20,24,52,.55) 72%)}
 .flash{position:absolute;top:34%;left:0;right:0;text-align:center;font-family:var(--display);font-style:italic;font-weight:700;font-size:clamp(48px,12vw,120px);letter-spacing:.02em;opacity:0;transform:scale(.8);transition:opacity .2s,transform .25s;text-shadow:0 0 30px currentColor}
 .flash.on{opacity:1;transform:scale(1)}
 .hint{position:absolute;left:calc(16px + env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));font-size:12px;color:var(--dim);letter-spacing:.04em}
@@ -61,12 +69,14 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
 .keys kbd{font-family:var(--body);font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;padding:1px 6px}
 .final{font-family:var(--display);font-style:italic;font-weight:700;font-size:56px;display:flex;gap:18px;align-items:baseline}
 .final .a{color:var(--teal)} .final .b{color:var(--coral)} .final i{color:var(--dim);font-size:28px}
-.touch{position:fixed;inset:auto 0 0 0;display:flex;justify-content:space-between;align-items:flex-end;padding:0 max(16px,env(safe-area-inset-right,0px)) calc(150px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));pointer-events:none}
+.touch{position:fixed;inset:auto 0 0 0;display:flex;justify-content:space-between;align-items:flex-end;padding:0 max(16px,env(safe-area-inset-right,0px)) calc(18px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));pointer-events:none}
+.touch .grp:last-child{margin-right:150px}
+.touch .jb{width:78px;height:78px;font-size:14px}
 .touch .grp{display:flex;gap:10px;pointer-events:auto}
 .touch button{width:64px;height:64px;border-radius:50%;border:1px solid var(--line);background:rgba(20,24,52,.6);color:var(--ink);font:700 13px var(--body);touch-action:none}
 .touch button.on{background:rgba(238,240,255,.3)}
 .touch .jb{background:rgba(46,230,200,.35)} .touch .bb{background:rgba(255,207,90,.35)}
-@media (max-width:560px){.tm{font-size:22px;min-width:64px;padding:5px 12px}.tm small{display:none}.clock{font-size:20px;min-width:70px}.boost{width:96px;height:96px}.boost b{font-size:26px}.hint{display:none}}
+@media (max-width:560px){.tm{font-size:22px;min-width:64px;padding:5px 12px}.tm small{display:none}.clock{font-size:20px;min-width:70px}.boost{width:96px;height:96px}.boost b{font-size:26px}.hint{display:none}body.tm .boost{width:116px;height:116px}.touch .grp:last-child{margin-right:128px}}
 @media (prefers-reduced-motion:reduce){.flash{transition:none}}
 </style>
 
@@ -88,7 +98,7 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
 
 <div class="touch" id="touch" hidden>
   <div class="grp"><button data-t="l">◀</button><button data-t="r">▶</button><button data-t="rev">REV</button></div>
-  <div class="grp"><button data-t="boost" class="bb">BOOST</button><button data-t="jump" class="jb">JUMP</button></div>
+  <div class="grp"><button data-t="jump" class="jb">JUMP</button></div>
 </div>
 
 <div class="overlay" id="menu">
@@ -646,7 +656,13 @@ for (const b of document.querySelectorAll('#touch button')) {
   const off = e => { e.preventDefault(); touch[k] = false; b.classList.remove('on'); };
   b.addEventListener('pointerdown', on); b.addEventListener('pointerup', off); b.addEventListener('pointercancel', off); b.addEventListener('pointerleave', off);
 }
-function syncTouchUi() { $('touch').hidden = !(touchUsed && inMatch() && !paused); $('boostUi').hidden = $('hint').hidden = !inMatch(); }
+{
+  const g = $('boostUi');
+  const on = e => { e.preventDefault(); touch.boost = true; };
+  const off = e => { e.preventDefault(); touch.boost = false; };
+  g.addEventListener('pointerdown', on); for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) g.addEventListener(ev, off);
+}
+function syncTouchUi() { document.body.classList.toggle('tm', touchUsed && inMatch()); $('touch').hidden = !(touchUsed && inMatch() && !paused); $('boostUi').hidden = $('hint').hidden = !inMatch(); }
 
 let padPrev = {};
 function readPlayer() {
@@ -1074,6 +1090,9 @@ function updateHud() {
 }
 let shownBoost = -1;
 function updateBoostUi() {
+  const g = $('boostUi');
+  if (g.classList.contains('on') !== player.boosting) g.classList.toggle('on', player.boosting);
+  if (g.classList.contains('empty') !== (player.boost <= 0)) g.classList.toggle('empty', player.boost <= 0);
   const b = Math.round(player.boost);
   if (b === shownBoost) return; shownBoost = b;
   $('bval').textContent = b;

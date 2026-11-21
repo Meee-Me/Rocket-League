@@ -28,7 +28,7 @@ lets it sign in only from that address. If the address changes, change it in Del
 | Pause | P or Esc | Start |
 | Sound on/off | M | |
 
-Touch controls appear on phones and tablets.
+Touch controls appear on phones and tablets. The round boost gauge is the boost button: hold it to boost. It glows while you boost and turns red when it's empty.
 
 ## Stadiums
 
