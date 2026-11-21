@@ -826,19 +826,25 @@ function botThink(c, sk) {
   const d0 = Math.hypot(b.x - c.pos.x, b.z - c.pos.z);
   const tp = Math.min(1.3, d0 / 32) * sk.lead;
   const bx = clamp(b.x + bv.x * tp, -A.hx + 3, A.hx - 3), bz = clamp(b.z + bv.z * tp, -A.hz + 3, A.hz - 3);
-  let tx, tz, urgent = false;
+  let tx, tz, urgent = false, shooting = false;
   const wrongSide = (c.pos.z - bz) * sgn > 1.5;
   if (wrongSide) {
-    tx = bx + (c.pos.x >= bx ? 1 : -1) * 9;
-    tz = clamp(bz - sgn * 10, -A.hz + 4, A.hz - 4);
+    tx = bx + (c.pos.x >= bx ? 1 : -1) * 14;  // give the ball a wide berth: clipping it here sends it towards our goal
+    tz = clamp(bz - sgn * 12, -A.hz + 4, A.hz - 4);
     urgent = Math.abs(bz - own) < 40;
   } else {
-    let ux = -bx, uz = att - bz; const L = Math.hypot(ux, uz) || 1; ux /= L; uz /= L;
-    const behX = bx - ux * 6, behZ = bz - uz * 6;
-    const toBeh = Math.hypot(c.pos.x - behX, c.pos.z - behZ);
+    // shoot: aim between the posts, get behind the ball on that line, then drive through it
+    const gx = clamp(bx, -(A.gw / 2 - 4), A.gw / 2 - 4);
+    let ux = gx - bx, uz = att - bz; const L = Math.hypot(ux, uz) || 1; ux /= L; uz /= L;
     const hx = bx - c.pos.x, hz = bz - c.pos.z, hl = Math.hypot(hx, hz) || 1;
-    const aligned = (hx / hl) * ux + (hz / hl) * uz;
-    if (toBeh < 7 || aligned > 0.75 || d0 < 6) { tx = bx; tz = bz; } else { tx = behX; tz = behZ; }
+    const aligned = (hx / hl) * ux + (hz / hl) * uz;  // 1 = the car, ball and goal are in a line
+    if (aligned > 0.96 || hl < 4) {
+      tx = bx - ux * BR * 0.9; tz = bz - uz * BR * 0.9;  // the side of the ball facing away from the goal
+      shooting = true;
+    } else {
+      const back = 4 + 14 * clamp(1 - aligned, 0, 1);  // swing wider the worse we're lined up
+      tx = bx - ux * back; tz = bz - uz * back;
+    }
   }
   const support = teamSize > 1 && !c.att;
   if (support) {  // cover: sit between the ball and our goal, the second helper further back
@@ -850,6 +856,10 @@ function botThink(c, sk) {
   const diff = wrapAng(want - c.yaw);
   I.steer = clamp(-diff * sk.aim, -1, 1);
   I.throttle = Math.abs(diff) > 1.6 ? 0.5 : 1;
+  I.slide = c.onGround && Math.abs(diff) > 1.1 && c.vel.length() > 12;  // powerslide round sharp turns, like a good player
+  // can't turn inside a circle about 0.4 x speed wide: if the target is closer than that and off to the side, brake first
+  const tdist = Math.hypot(tx - c.pos.x, tz - c.pos.z), spd0 = Math.hypot(c.vel.x, c.vel.z);
+  if (c.onGround && Math.abs(diff) > 0.5 && tdist < spd0 * 0.45 + 3 && spd0 > 14) I.throttle = -1;
   I.pitch = 0;
   if (support && Math.hypot(tx - c.pos.x, tz - c.pos.z) < 6) I.throttle = 0;  // in position: wait there
   // jammed against a wall (or the ball against one): back out and turn for a moment
@@ -857,7 +867,7 @@ function botThink(c, sk) {
   if (c.stuckT > 0.8) { c.backT = 0.7; c.stuckT = 0; }
   if (c.backT > 0) { c.backT -= STEP; I.throttle = -1; I.steer = -I.steer; I.boost = false; I.jump = false; return; }
   const dist = Math.hypot(tx - c.pos.x, tz - c.pos.z);
-  I.boost = c.onGround && c.boost > sk.boostFloor * 0.4 && Math.abs(diff) < 0.3 && (dist > 14 || urgent) && c.boost > 0;
+  I.boost = c.onGround && c.boost > sk.boostFloor * 0.4 && Math.abs(diff) < 0.3 && (dist > 14 || urgent || (shooting && d0 < 30)) && c.boost > 0;
   if (sk.boostFloor > 50 && c.boost < sk.boostFloor) I.boost = false;
   let jump = false;
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
@@ -865,6 +875,7 @@ function botThink(c, sk) {
   const hd = Math.hypot(b.x - c.pos.x, b.z - c.pos.z);
   if (c.onGround) {
     if (hd < 7 && front > 0.6 && b.y > 4 && b.y < 9 + 4 * sk.jump && c.jumpRoll < sk.jump) jump = true;
+    if (shooting && hd < 7 && front > 0.9 && b.y < 4.5 && c.vel.length() > 15 && c.jumpRoll < sk.jump) jump = true;  // jump into a front flip for a hard shot
   } else {
     if (c.canDodge && c.airT > 0.18) {
       if (hd < 5.5 && b.y < c.pos.y + 4.5) { jump = true; I.pitch = -1; }
@@ -1029,6 +1040,7 @@ function carBall(c) {
   if (dist >= R || dist < 1e-4) return;
   const n = d.multiplyScalar(1 / dist);
   ball.pos.copy(pt).addScaledVector(n, R);
+  if (n.y > 0 && n.y < 0.7) { n.y *= 0.5; n.normalize(); }  // front-on hits drive the ball forward more than up, so shots stay under the bar
   const rel = t4.copy(ball.vel).sub(c.vel), vn = rel.dot(n);
   if (vn < 0) {
     ball.vel.addScaledVector(n, -vn * 1.35);
