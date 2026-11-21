@@ -47,6 +47,10 @@ the crowd automatically to stay smooth.
 
 ## Features
 
+- Drive up the walls and across the ceiling (fall off if you slow down)
+- Aerials: hold jump to jump higher, and hold jump + boost in the air to fly upward
+- Big goals: 26 wide and 12 high
+
 - Three bot difficulties (Rookie, Pro, Ace) and 2, 3 or 5 minute matches
 - Boost pads: big ones refill to 100, small ones add 12
 - Aerials, double jumps and dodges that hit harder
