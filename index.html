@@ -554,7 +554,7 @@ function carMesh(col) {
 function makeCar(team) {
   const m = carMesh(TEAM_COL[team]);
   return { team, mesh: m, pos: new V3(), vel: new V3(), yaw: 0, pitch: 0, onGround: true, airT: 0, canDodge: false,
-    flipT: 0, flipF: 0, flipS: 0, jumpRoll: 0, surf: 0, up: new V3(0, 1, 0), fwd: new V3(0, 0, 1), boost: 33, boosting: false, prevJump: false, hitCd: 0, speedMul: 1,
+    flipT: 0, flipF: 0, flipS: 0, jumpRoll: 0, stuckT: 0, backT: 0, surf: 0, up: new V3(0, 1, 0), fwd: new V3(0, 0, 1), boost: 33, boosting: false, prevJump: false, hitCd: 0, speedMul: 1,
     input: { throttle: 0, steer: 0, pitch: 0, jump: false, boost: false } };
 }
 const player = makeCar(0), bot = makeCar(1), cars = [player, bot];
@@ -708,11 +708,16 @@ function botThink(c, sk) {
     const aligned = (hx / hl) * ux + (hz / hl) * uz;
     if (toBeh < 7 || aligned > 0.75 || d0 < 6) { tx = bx; tz = bz; } else { tx = behX; tz = behZ; }
   }
+  tx = clamp(tx, -A.hx + 5, A.hx - 5); tz = clamp(tz, -A.hz + 5, A.hz - 5);  // never aim outside the arena
   const want = Math.atan2(tx - c.pos.x, tz - c.pos.z);
   const diff = wrapAng(want - c.yaw);
   I.steer = clamp(-diff * sk.aim, -1, 1);
   I.throttle = Math.abs(diff) > 1.6 ? 0.5 : 1;
   I.pitch = 0;
+  // jammed against a wall (or the ball against one): back out and turn for a moment
+  c.stuckT = c.onGround && state !== 'countdown' && Math.hypot(c.vel.x, c.vel.z) < 4 ? c.stuckT + STEP : 0;
+  if (c.stuckT > 0.8) { c.backT = 0.7; c.stuckT = 0; }
+  if (c.backT > 0) { c.backT -= STEP; I.throttle = -1; I.steer = -I.steer; I.boost = false; I.jump = false; return; }
   const dist = Math.hypot(tx - c.pos.x, tz - c.pos.z);
   I.boost = c.onGround && c.boost > sk.boostFloor * 0.4 && Math.abs(diff) < 0.3 && (dist > 14 || urgent) && c.boost > 0;
   if (sk.boostFloor > 50 && c.boost < sk.boostFloor) I.boost = false;
@@ -980,7 +985,7 @@ function resetPositions() {
   const [x, z] = KICKOFFS[Math.floor(Math.random() * KICKOFFS.length)];
   const set = (c, px, pz) => {
     c.pos.set(px, 0, pz); c.vel.set(0, 0, 0); c.yaw = Math.atan2(-px, -pz); c.pitch = 0;
-    c.onGround = true; c.flipT = 0; c.boost = 33; c.surf = 0; c.up.copy(UP); c.prevJump = false; c.canDodge = false;
+    c.onGround = true; c.flipT = 0; c.boost = 33; c.surf = 0; c.up.copy(UP); c.stuckT = c.backT = 0; c.prevJump = false; c.canDodge = false;
   };
   set(player, x, z); set(bot, -x, -z);
   ball.pos.set(0, BR, 0); ball.vel.set(0, 0, 0); ball.visible = true;
