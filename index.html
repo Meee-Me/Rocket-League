@@ -106,11 +106,11 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
     <div class="top"><p class="eyebrow" id="mEyebrow">1v1 · Rocket-car soccer</p><div class="acct" id="account"></div></div>
     <h1 id="mTitle">Nitro<br>Kickoff</h1>
     <div class="final" id="mFinal" hidden><span class="a" id="fA">0</span><i>–</i><span class="b" id="fB">0</span></div>
-    <p class="lede" id="mLede">Drive, jump and boost your car into a ball the size of a truck. Outscore the bot before the clock runs out. Pick a stadium: the neon dome, a farm ground packed with potato fans, or a slippery ice rink.</p>
+    <p class="lede" id="mLede">Drive, jump and boost your car into a ball the size of a truck. Outscore the bot before the clock runs out. Pick a stadium: classic Grasslands, the neon dome, a farm ground packed with potato fans, or a slippery ice rink.</p>
     <div class="opts">
       <div class="opt"><span>Opponent</span><div class="seg" id="segDiff"><button id="dRookie" data-v="rookie">Rookie</button><button id="dPro" data-v="pro" class="on">Pro</button><button id="dAce" data-v="ace">Ace</button></div></div>
       <div class="opt"><span>Mode</span><div class="seg" id="segTeams"><button id="t1" data-v="1" class="on">1v1</button><button id="t2" data-v="2">2v2</button><button id="t3" data-v="3">3v3</button></div></div>
-      <div class="opt"><span>Stadium</span><div class="seg" id="segMap"><button id="mNeon" data-v="neon" class="on">Neon Dome</button><button id="mSpud" data-v="spud">Spud Bowl</button><button id="mFrost" data-v="frost">Frost Rink</button></div></div>
+      <div class="opt"><span>Stadium</span><div class="seg" id="segMap"><button id="mGrass" data-v="grass" class="on">Grasslands</button><button id="mNeon" data-v="neon">Neon Dome</button><button id="mSpud" data-v="spud">Spud Bowl</button><button id="mFrost" data-v="frost">Frost Rink</button></div></div>
       <div class="opt"><span>Match length</span><div class="seg" id="segLen"><button id="l2" data-v="120">2 min</button><button id="l3" data-v="180" class="on">3 min</button><button id="l5" data-v="300">5 min</button></div></div>
     </div>
     <button class="go" id="play">Kick off</button>
@@ -180,6 +180,9 @@ scene.add(sun);
    grip: how hard tyres hold sideways · coast: slow-down with no throttle
    roll: ball rolling friction · bounce: ball bounce off the floor */
 const MAPS = {
+  grass: { name: 'Grasslands', sky: 0x8cc8ff, fog: [220, 460], hemi: [0xf2f8ff, 0x4a6a3a, 0.8], sun: [0xfff6e0, 1.1],
+    stripes: ['#2f6a22', '#377628'], line: 'rgba(255,255,255,0.9)', tint: 0.035, ground: 0x4c7f30, glass: 0xffffff, edge: 0xc8d2dc,
+    stand: 0x8a909c, rim: 0xffffff, fans: 'people', sky2: 'clouds', grip: 11, coast: 10, roll: 0.5, bounce: 0.62, ball: 'geo', screen: '#1d2a3a' },
   neon: { name: 'Neon Dome', sky: 0x070816, fog: [140, 320], hemi: [0xc4ccff, 0x1a1636, 0.75], sun: [0xffffff, 0.85],
     stripes: ['#151933', '#1a1f3d'], line: 'rgba(238,240,255,0.5)', tint: 0.08, ground: 0x0b0d22, glass: 0x8090ff, edge: 0x5a64b8,
     stand: 0x1c2040, rim: 0x2ee6c8, fans: 'people', sky2: 'stars', grip: 11, coast: 10, roll: 0.5, bounce: 0.62, ball: 'geo', screen: '#0b0d22' },
@@ -190,7 +193,7 @@ const MAPS = {
     stripes: ['#d3e8f6', '#dcedf9'], line: 'rgba(30,80,150,0.55)', tint: 0.12, ground: 0xe4eef6, glass: 0xbfe6ff, edge: 0x86b4da,
     stand: 0x2a3a58, rim: 0xbfe6ff, fans: 'people', sky2: 'snow', grip: 3.2, coast: 3, roll: 0.12, bounce: 0.55, ball: 'geo', screen: '#10203a' },
 };
-let MAP = MAPS.neon, mapId = 'neon';
+let MAP = MAPS.grass, mapId = 'grass';
 const world = new THREE.Group(); scene.add(world);
 const W = o => { world.add(o); return o; };
 
@@ -202,7 +205,7 @@ function fieldTexture(m) {
     g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1;
     for (let i = 0; i < 160; i++) { const x = Math.random() * 512, y = Math.random() * 768, a = Math.random() * 6.3, l = 20 + Math.random() * 90; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a + .4) * l / 2, y + Math.sin(a + .4) * l / 2, x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
   }
-  if (mapId === 'spud') {  // grass speckle
+  if (mapId === 'spud' || mapId === 'grass') {  // grass speckle
     for (let i = 0; i < 5000; i++) { g.fillStyle = Math.random() < .5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)'; g.fillRect(Math.random() * 512, Math.random() * 768, 2, 2); }
   }
   g.fillStyle = `rgba(46,230,200,${m.tint})`; g.fillRect(0, 0, 512, 384);
@@ -440,6 +443,14 @@ function buildMascots() {
   }
 }
 
+function buildHills() {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x5a9a3a, roughness: 1, flatShading: true });
+  for (let i = 0; i < 18; i++) {
+    const a = (i / 18) * Math.PI * 2 + Math.random() * 0.2, r = 190 + Math.random() * 70, sc = 30 + Math.random() * 35;
+    const hill = W(new THREE.Mesh(new THREE.IcosahedronGeometry(1, 1), mat));
+    hill.scale.set(sc * 1.6, sc * (0.35 + Math.random() * 0.3), sc); hill.position.set(Math.cos(a) * r, -sc * 0.1, Math.sin(a) * r); hill.rotation.y = a;
+  }
+}
 function disposeWorld() {
   world.traverse(o => {
     if (o.geometry) o.geometry.dispose();
@@ -448,7 +459,7 @@ function disposeWorld() {
   world.clear();
 }
 function buildMap(id) {
-  mapId = MAPS[id] ? id : 'neon'; MAP = MAPS[mapId];
+  mapId = MAPS[id] ? id : 'grass'; MAP = MAPS[mapId];
   disposeWorld();
   scene.background = new THREE.Color(MAP.sky);
   scene.fog.color.setHex(MAP.sky); scene.fog.near = MAP.fog[0]; scene.fog.far = MAP.fog[1];
@@ -473,9 +484,10 @@ function buildMap(id) {
   goal(-1, TEAM_COL[0]); goal(1, TEAM_COL[1]);
   buildStands();
   if (mapId === 'spud') buildMascots();
+  if (mapId === 'grass') buildHills();
   buildSky();
   if (typeof setBallStyle === 'function') setBallStyle(MAP.ball);
-  try { localStorage.setItem('kickoff.map', mapId); } catch (e) {}
+  try { localStorage.setItem('kickoff.map2', mapId); } catch (e) {}
 }
 
 /* ---------- particles ---------- */
@@ -1148,7 +1160,7 @@ $('quit').onclick = () => {
   state = 'menu'; for (const c of cars) c.speedMul = 0.92;
   $('mEyebrow').textContent = '1v1 · Rocket-car soccer'; $('mTitle').innerHTML = 'Nitro<br>Kickoff';
   $('mFinal').hidden = true; $('play').textContent = 'Kick off';
-  $('mLede').textContent = 'Drive, jump and boost your car into a ball the size of a truck. Outscore the bot before the clock runs out. Pick a stadium: the neon dome, a farm ground packed with potato fans, or a slippery ice rink.';
+  $('mLede').textContent = 'Drive, jump and boost your car into a ball the size of a truck. Outscore the bot before the clock runs out. Pick a stadium: classic Grasslands, the neon dome, a farm ground packed with potato fans, or a slippery ice rink.';
   $('menu').hidden = false; resetPositions(); syncTouchUi();
 };
 document.addEventListener('visibilitychange', () => { if (document.hidden && inMatch() && !paused) togglePause(); });
@@ -1321,8 +1333,8 @@ function updateVisuals(dt, time) {
 }
 
 /* ---------- loop ---------- */
-let savedMap = 'neon';
-try { savedMap = localStorage.getItem('kickoff.map') || 'neon'; } catch (e) {}
+let savedMap = 'grass';
+try { savedMap = localStorage.getItem('kickoff.map2') || 'grass'; } catch (e) {}
 buildMap(savedMap);
 for (const b of $('segMap').children) b.classList.toggle('on', b.dataset.v === mapId);
 resetPositions(); for (const c of cars) c.speedMul = 0.92; updateHud(); setCamLabel(); syncTouchUi();

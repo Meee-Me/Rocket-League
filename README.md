@@ -37,6 +37,7 @@ Pick one on the start screen; the game remembers your choice.
 
 | Stadium | What's different |
 | --- | --- |
+| **Grasslands** | The standard stadium and the default: a striped grass pitch on a sunny day, with green hills beyond the stands |
 | **Neon Dome** | Night arena under the stars, glass walls with neon trim |
 | **Spud Bowl** | A sunny farm ground. The fans are potatoes in team caps, four giant potato mascots stand in the corners, and the ball is a giant potato. Grass slows the ball and makes it bounce less |
 | **Frost Rink** | Ice under falling snow. Cars slide when they turn, and the ball keeps rolling |
