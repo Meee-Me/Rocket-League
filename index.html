@@ -846,10 +846,20 @@ function botThink(c, sk) {
       tx = bx - ux * back; tz = bz - uz * back;
     }
   }
-  const support = teamSize > 1 && !c.att;
-  if (support) {  // cover: sit between the ball and our goal, the second helper further back
+  // teammates who aren't the attacker still play: they join in when the ball is close and
+  // the attacker isn't on it, fetch boost when low, and otherwise cover the goal
+  const mate = cars.find(o => o !== c && o.team === c.team && o.att);
+  const joins = teamSize > 1 && !c.att && d0 < 24 && !(mate && Math.hypot(mate.pos.x - b.x, mate.pos.z - b.z) < d0 * 0.8);
+  const support = teamSize > 1 && !c.att && !joins;
+  let fetching = false;
+  if (support) {
     const back = cars.filter(o => o.team === c.team && !o.att).indexOf(c);
     tx = b.x * 0.4 + (back ? (b.x > 0 ? -10 : 10) : 0); tz = own + (b.z - own) * (back ? 0.15 : 0.35); urgent = false;
+    if (c.boost < 40) {  // nearest ready boost pad on our half
+      let bestPad = null, bestD = Infinity;
+      for (const pd of pads) { if (pd.t > 0 || (pd.z - 0) * Math.sign(own) < -4) continue; const d = Math.hypot(pd.x - c.pos.x, pd.z - c.pos.z); if (d < bestD) { bestD = d; bestPad = pd; } }
+      if (bestPad) { tx = bestPad.x; tz = bestPad.z; fetching = true; }
+    }
   }
   tx = clamp(tx, -A.hx + 5, A.hx - 5); tz = clamp(tz, -A.hz + 5, A.hz - 5);  // never aim outside the arena
   const want = Math.atan2(tx - c.pos.x, tz - c.pos.z);
@@ -861,13 +871,13 @@ function botThink(c, sk) {
   const tdist = Math.hypot(tx - c.pos.x, tz - c.pos.z), spd0 = Math.hypot(c.vel.x, c.vel.z);
   if (c.onGround && Math.abs(diff) > 0.5 && tdist < spd0 * 0.45 + 3 && spd0 > 14) I.throttle = -1;
   I.pitch = 0;
-  if (support && Math.hypot(tx - c.pos.x, tz - c.pos.z) < 6) I.throttle = 0;  // in position: wait there
+  if (support && !fetching && Math.hypot(tx - c.pos.x, tz - c.pos.z) < 6) I.throttle = 0;  // in position: wait there
   // jammed against a wall (or the ball against one): back out and turn for a moment
   c.stuckT = c.onGround && I.throttle && state !== 'countdown' && Math.hypot(c.vel.x, c.vel.z) < 4 ? c.stuckT + STEP : 0;
   if (c.stuckT > 0.8) { c.backT = 0.7; c.stuckT = 0; }
   if (c.backT > 0) { c.backT -= STEP; I.throttle = -1; I.steer = -I.steer; I.boost = false; I.jump = false; return; }
   const dist = Math.hypot(tx - c.pos.x, tz - c.pos.z);
-  I.boost = c.onGround && c.boost > sk.boostFloor * 0.4 && Math.abs(diff) < 0.3 && (dist > 14 || urgent || (shooting && d0 < 30)) && c.boost > 0;
+  I.boost = c.onGround && c.boost > sk.boostFloor * 0.4 && Math.abs(diff) < 0.3 && (dist > 14 || urgent || fetching || (shooting && d0 < 30)) && c.boost > 0;
   if (sk.boostFloor > 50 && c.boost < sk.boostFloor) I.boost = false;
   let jump = false;
   const fx = Math.sin(c.yaw), fz = Math.cos(c.yaw);
