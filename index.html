@@ -172,7 +172,7 @@ addEventListener('resize', resize); resize();
 const hemi = new THREE.HemisphereLight(0xc4ccff, 0x1a1636, 0.75); scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffffff, 0.85);
 sun.position.set(30, 70, 25); sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.02;
 Object.assign(sun.shadow.camera, { left: -70, right: 70, top: 80, bottom: -80, near: 10, far: 200 });
 scene.add(sun);
 
@@ -180,16 +180,16 @@ scene.add(sun);
    grip: how hard tyres hold sideways · coast: slow-down with no throttle
    roll: ball rolling friction · bounce: ball bounce off the floor */
 const MAPS = {
-  grass: { name: 'Grasslands', sky: 0x8cc8ff, fog: [220, 460], hemi: [0xf2f8ff, 0x4a6a3a, 0.8], sun: [0xfff6e0, 1.1],
+  grass: { name: 'Grasslands', skyTop: 0x2f7fd8, sky: 0xd4e8f7, sunDisc: true, fog: [220, 460], hemi: [0xf2f8ff, 0x4a6a3a, 0.8], sun: [0xfff6e0, 1.1],
     stripes: ['#2f6a22', '#377628'], line: 'rgba(255,255,255,0.9)', tint: 0.035, ground: 0x4c7f30, glass: 0xffffff, edge: 0xc8d2dc,
     stand: 0x8a909c, rim: 0xffffff, fans: 'people', sky2: 'clouds', grip: 11, coast: 10, roll: 0.5, bounce: 0.62, ball: 'geo', screen: '#1d2a3a' },
-  neon: { name: 'Neon Dome', sky: 0x070816, fog: [140, 320], hemi: [0xc4ccff, 0x1a1636, 0.75], sun: [0xffffff, 0.85],
+  neon: { name: 'Neon Dome', skyTop: 0x020309, sky: 0x111633, fog: [140, 320], hemi: [0xc4ccff, 0x1a1636, 0.75], sun: [0xffffff, 0.85],
     stripes: ['#151933', '#1a1f3d'], line: 'rgba(238,240,255,0.5)', tint: 0.08, ground: 0x0b0d22, glass: 0x8090ff, edge: 0x5a64b8,
     stand: 0x1c2040, rim: 0x2ee6c8, fans: 'people', sky2: 'stars', grip: 11, coast: 10, roll: 0.5, bounce: 0.62, ball: 'geo', screen: '#0b0d22' },
-  spud: { name: 'Spud Bowl', sky: 0x9fd4ff, fog: [200, 420], hemi: [0xffffff, 0x6d8f3c, 0.95], sun: [0xfff0d0, 1.15],
+  spud: { name: 'Spud Bowl', skyTop: 0x3c90e6, sky: 0xdcefff, sunDisc: true, fog: [200, 420], hemi: [0xffffff, 0x6d8f3c, 0.95], sun: [0xfff0d0, 1.15],
     stripes: ['#3d7a2a', '#479033'], line: 'rgba(255,255,255,0.85)', tint: 0.035, ground: 0x6f5232, glass: 0xffffff, edge: 0xb8915a,
     stand: 0x7a5a36, rim: 0xffcf5a, fans: 'potato', sky2: 'clouds', grip: 11, coast: 10, roll: 0.9, bounce: 0.5, ball: 'potato', screen: '#2d4a1c' },
-  frost: { name: 'Frost Rink', sky: 0x17243c, fog: [110, 280], hemi: [0xdff2ff, 0x3a4d70, 0.9], sun: [0xe8f4ff, 0.95],
+  frost: { name: 'Frost Rink', skyTop: 0x0a1528, sky: 0x34496a, fog: [110, 280], hemi: [0xdff2ff, 0x3a4d70, 0.9], sun: [0xe8f4ff, 0.95],
     stripes: ['#d3e8f6', '#dcedf9'], line: 'rgba(30,80,150,0.55)', tint: 0.12, ground: 0xe4eef6, glass: 0xbfe6ff, edge: 0x86b4da,
     stand: 0x2a3a58, rim: 0xbfe6ff, fans: 'people', sky2: 'snow', grip: 3.2, coast: 3, roll: 0.12, bounce: 0.55, ball: 'geo', screen: '#10203a' },
 };
@@ -198,15 +198,22 @@ const world = new THREE.Group(); scene.add(world);
 const W = o => { world.add(o); return o; };
 
 function fieldTexture(m) {
-  const c = document.createElement('canvas'); c.width = 512; c.height = 768;
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 1536;
   const g = c.getContext('2d'), s = 512 / 80;
+  g.scale(2, 2);  // drawn in 512x768 units at double resolution
   for (let i = 0; i < 12; i++) { g.fillStyle = m.stripes[i % 2]; g.fillRect(0, i * 64, 512, 64); }
   if (mapId === 'frost') {  // skate scratches on the ice
     g.strokeStyle = 'rgba(255,255,255,0.55)'; g.lineWidth = 1;
     for (let i = 0; i < 160; i++) { const x = Math.random() * 512, y = Math.random() * 768, a = Math.random() * 6.3, l = 20 + Math.random() * 90; g.beginPath(); g.moveTo(x, y); g.quadraticCurveTo(x + Math.cos(a + .4) * l / 2, y + Math.sin(a + .4) * l / 2, x + Math.cos(a) * l, y + Math.sin(a) * l); g.stroke(); }
   }
   if (mapId === 'spud' || mapId === 'grass') {  // grass speckle
-    for (let i = 0; i < 5000; i++) { g.fillStyle = Math.random() < .5 ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.05)'; g.fillRect(Math.random() * 512, Math.random() * 768, 2, 2); }
+    for (let i = 0; i < 60000; i++) {  // individual blades, a little lighter or darker than the turf
+      const l = Math.random();
+      g.fillStyle = l < 0.45 ? 'rgba(10,40,5,0.22)' : l < 0.9 ? 'rgba(150,210,90,0.16)' : 'rgba(220,240,150,0.18)';
+      g.fillRect(Math.random() * 512, Math.random() * 768, 0.5, 1 + Math.random() * 1.5);
+    }
+    const v = g.createRadialGradient(256, 384, 150, 256, 384, 520);  // turf wears a little darker towards the edges
+    v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.18)'); g.fillStyle = v; g.fillRect(0, 0, 512, 768);
   }
   g.fillStyle = `rgba(46,230,200,${m.tint})`; g.fillRect(0, 0, 512, 384);
   g.fillStyle = `rgba(255,106,77,${m.tint})`; g.fillRect(0, 384, 512, 384);
@@ -401,6 +408,17 @@ function buildStands() {
     const a = W(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.3, sideLen), rimMat)); a.position.set(s * (sideX - ROW_D / 2), 1.3, 0);
     const b = W(new THREE.Mesh(new THREE.BoxGeometry(endLen, 0.3, 0.3), rimMat)); b.position.set(0, 1.3, s * (endZ - ROW_D / 2));
   }
+  const steel = new THREE.MeshStandardMaterial({ color: 0x9aa3b2, roughness: 0.35, metalness: 0.8 });
+  const roofY = 1.2 + ROWS * ROW_H + 7, depth = ROWS * ROW_D + 3;
+  for (const s of [-1, 1]) {
+    const roof = W(new THREE.Mesh(new THREE.BoxGeometry(depth, 0.5, sideLen), steel));
+    roof.position.set(s * (sideX + depth / 2 - 1.5), roofY, 0); roof.rotation.z = s * 0.06; roof.castShadow = true;
+    for (let z = -sideLen / 2 + 6; z < sideLen / 2; z += 22) {
+      const col = W(new THREE.Mesh(new THREE.BoxGeometry(0.7, roofY, 0.7), steel)); col.position.set(s * (sideX + ROWS * ROW_D + 0.5), roofY / 2, z);
+    }
+    const back = W(new THREE.Mesh(new THREE.BoxGeometry(0.6, roofY, sideLen), new THREE.MeshStandardMaterial({ color: MAP.stand, roughness: 0.9 })));
+    back.position.set(s * (sideX + ROWS * ROW_D + 1.2), roofY / 2, 0);
+  }
   buildCrowd(seats);
   /* big screens above the end stands */
   screens.length = 0; screenKey = '';
@@ -443,6 +461,38 @@ function buildMascots() {
   }
 }
 
+/* A gradient sky with the sun in it. The same sky is turned into scene.environment,
+   so paint, glass and the ball reflect it. */
+const pmrem = new THREE.PMREMGenerator(renderer);
+let envTex = null;
+function skyGeo(r) {
+  const geo = new THREE.SphereGeometry(r, 48, 24), pos = geo.attributes.position, col = [];
+  const top = new THREE.Color(MAP.skyTop), hor = new THREE.Color(MAP.sky), gnd = new THREE.Color(MAP.ground), c = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i) / r;
+    if (y >= 0) c.copy(hor).lerp(top, Math.pow(y, 0.6)); else c.copy(hor).lerp(gnd, Math.min(1, -y * 4));
+    col.push(c.r, c.g, c.b);
+  }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  return geo;
+}
+function buildSkyDome() {
+  const dome = W(new THREE.Mesh(skyGeo(520), new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })));
+  dome.renderOrder = -1;
+  const sunDir = t1.copy(sun.position).normalize();
+  if (MAP.sunDisc) {
+    const disc = W(new THREE.Mesh(new THREE.SphereGeometry(16, 16, 12), new THREE.MeshBasicMaterial({ color: 0xfffbe8, fog: false })));
+    disc.position.copy(sunDir).multiplyScalar(480);
+  }
+  const envScene = new THREE.Scene();
+  envScene.add(new THREE.Mesh(skyGeo(50), new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide })));
+  const spot = new THREE.Mesh(new THREE.SphereGeometry(MAP.sunDisc ? 4 : 2.5, 12, 8), new THREE.MeshBasicMaterial({ color: MAP.sunDisc ? 0xffffff : 0x8890c0 }));
+  spot.position.copy(sunDir).multiplyScalar(45); envScene.add(spot);
+  if (envTex) envTex.dispose();
+  envTex = pmrem.fromScene(envScene, 0.02).texture;
+  scene.environment = envTex;
+  envScene.traverse(o => { if (o.geometry) { o.geometry.dispose(); o.material.dispose(); } });
+}
 function buildHills() {
   const mat = new THREE.MeshStandardMaterial({ color: 0x5a9a3a, roughness: 1, flatShading: true });
   for (let i = 0; i < 18; i++) {
@@ -462,11 +512,13 @@ function buildMap(id) {
   mapId = MAPS[id] ? id : 'grass'; MAP = MAPS[mapId];
   disposeWorld();
   scene.background = new THREE.Color(MAP.sky);
+  buildSkyDome();
   scene.fog.color.setHex(MAP.sky); scene.fog.near = MAP.fog[0]; scene.fog.far = MAP.fog[1];
-  hemi.color.setHex(MAP.hemi[0]); hemi.groundColor.setHex(MAP.hemi[1]); hemi.intensity = MAP.hemi[2];
+  hemi.color.setHex(MAP.hemi[0]); hemi.groundColor.setHex(MAP.hemi[1]); hemi.intensity = MAP.hemi[2] * 0.6;  // the sky reflection (scene.environment) now adds the rest
   sun.color.setHex(MAP.sun[0]); sun.intensity = MAP.sun[1];
   const floor = W(new THREE.Mesh(new THREE.PlaneGeometry(A.hx * 2, A.hz * 2), new THREE.MeshStandardMaterial({ map: fieldTexture(MAP), roughness: mapId === 'frost' ? 0.25 : 0.85, metalness: mapId === 'frost' ? 0.1 : 0 })));
   floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true;
+  floor.material.envMapIntensity = mapId === 'frost' ? 0.8 : 0.3;  // turf is matt: the sky shouldn't wash it out
   const outer = W(new THREE.Mesh(new THREE.PlaneGeometry(600, 600), new THREE.MeshStandardMaterial({ color: MAP.ground, roughness: 1 })));
   outer.rotation.x = -Math.PI / 2; outer.position.y = -0.05; outer.receiveShadow = true;
   const glass = new THREE.MeshPhongMaterial({ color: MAP.glass, transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false });
