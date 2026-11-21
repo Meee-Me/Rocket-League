@@ -24,6 +24,7 @@ lets it sign in only from that address. If the address changes, change it in Del
 | Dodge | Space in the air while holding a direction | A + stick |
 | Boost | Shift | B |
 | Tilt nose in the air | W / S | Left stick |
+| Powerslide | E | X or LB |
 | Ball cam | C | Y |
 | Pause | P or Esc | Start |
 | Sound on/off | M | |
@@ -46,6 +47,10 @@ scores, and you can hear it get louder. On slow devices the game lowers its reso
 the crowd automatically to stay smooth.
 
 ## Features
+
+- 1v1, 2v2 and 3v3. Bot teammates take turns: the closest one attacks, the others cover the goal
+- Powerslide (E, gamepad X or LB, DRIFT on phones) for tight turns
+- Demolitions: hit an opponent at near top speed and they explode, then respawn at their goal after 3 seconds
 
 - Drive up the walls and across the ceiling (fall off if you slow down)
 - Aerials: hold jump to jump higher, and hold jump + boost in the air to fly upward

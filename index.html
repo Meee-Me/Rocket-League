@@ -98,7 +98,7 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
 
 <div class="touch" id="touch" hidden>
   <div class="grp"><button data-t="l">◀</button><button data-t="r">▶</button><button data-t="rev">REV</button></div>
-  <div class="grp"><button data-t="jump" class="jb">JUMP</button></div>
+  <div class="grp"><button data-t="slide">DRIFT</button><button data-t="jump" class="jb">JUMP</button></div>
 </div>
 
 <div class="overlay" id="menu">
@@ -109,6 +109,7 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
     <p class="lede" id="mLede">Drive, jump and boost your car into a ball the size of a truck. Outscore the bot before the clock runs out. Pick a stadium: the neon dome, a farm ground packed with potato fans, or a slippery ice rink.</p>
     <div class="opts">
       <div class="opt"><span>Opponent</span><div class="seg" id="segDiff"><button id="dRookie" data-v="rookie">Rookie</button><button id="dPro" data-v="pro" class="on">Pro</button><button id="dAce" data-v="ace">Ace</button></div></div>
+      <div class="opt"><span>Mode</span><div class="seg" id="segTeams"><button id="t1" data-v="1" class="on">1v1</button><button id="t2" data-v="2">2v2</button><button id="t3" data-v="3">3v3</button></div></div>
       <div class="opt"><span>Stadium</span><div class="seg" id="segMap"><button id="mNeon" data-v="neon" class="on">Neon Dome</button><button id="mSpud" data-v="spud">Spud Bowl</button><button id="mFrost" data-v="frost">Frost Rink</button></div></div>
       <div class="opt"><span>Match length</span><div class="seg" id="segLen"><button id="l2" data-v="120">2 min</button><button id="l3" data-v="180" class="on">3 min</button><button id="l5" data-v="300">5 min</button></div></div>
     </div>
@@ -120,8 +121,9 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
       <dt><kbd>Shift</kbd></dt><dd>Boost. Grab gold pads to refill</dd>
       <dt><kbd>W</kbd> <kbd>S</kbd> in the air</dt><dd>Tilt the nose. For an aerial, hold <kbd>Space</kbd> and <kbd>Shift</kbd> after jumping (on a phone, hold JUMP and BOOST)</dd>
       <dt>Walls</dt><dd>Drive into a wall to drive up it, and keep going onto the ceiling. Slow down and you fall off</dd>
+      <dt><kbd>E</kbd></dt><dd>Powerslide: hold it while turning to drift round tight corners</dd>
       <dt><kbd>C</kbd></dt><dd>Toggle ball cam</dd>
-      <dt>Gamepad</dt><dd>RT/LT drive, A jump, B boost, Y ball cam</dd>
+      <dt>Gamepad</dt><dd>RT/LT drive, A jump, B boost, X or LB powerslide, Y ball cam</dd>
     </dl>
   </div>
 </div>
@@ -542,43 +544,67 @@ function setBallStyle(style) {
 }
 
 /* ---------- cars ---------- */
-function carMesh(col) {
+function carMesh(col, withLight) {
   const g = new THREE.Group();
   const paint = new THREE.MeshStandardMaterial({ color: col, roughness: 0.3, metalness: 0.45 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x14172e, roughness: 0.25, metalness: 0.7 });
   const add = (geo, mat, x, y, z) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = true; g.add(m); return m; };
-  add(new THREE.BoxGeometry(2.8, 0.75, 4.6), paint, 0, 0.95, 0);
-  add(new THREE.BoxGeometry(2.6, 0.35, 1.3), paint, 0, 0.75, 2.6);
-  add(new THREE.BoxGeometry(2.1, 0.7, 2.0), dark, 0, 1.65, -0.35);
-  add(new THREE.BoxGeometry(0.5, 0.06, 4.62), new THREE.MeshBasicMaterial({ color: 0xffffff }), 0, 1.33, 0);
-  add(new THREE.BoxGeometry(3.0, 0.12, 0.7), paint, 0, 2.05, -2.15);
-  add(new THREE.BoxGeometry(0.15, 0.6, 0.3), dark, -0.9, 1.7, -2.1);
-  add(new THREE.BoxGeometry(0.15, 0.6, 0.3), dark, 0.9, 1.7, -2.1);
-  const lamp = new THREE.MeshBasicMaterial({ color: 0xfff6d8 });
-  add(new THREE.BoxGeometry(0.6, 0.18, 0.05), lamp, -0.9, 0.85, 3.26);
-  add(new THREE.BoxGeometry(0.6, 0.18, 0.05), lamp, 0.9, 0.85, 3.26);
+  // a side profile (nose at +z) pushed out across the car's width
+  const side = (pts, w, bevel) => {
+    const sh = new THREE.Shape(pts.map(([z, y]) => new THREE.Vector2(z, y)));
+    const geo = new THREE.ExtrudeGeometry(sh, { depth: w, bevelEnabled: bevel, bevelThickness: 0.14, bevelSize: 0.12, bevelSegments: 3 });
+    geo.rotateY(-Math.PI / 2); geo.translate(w / 2, 0, 0); return geo;
+  };
+  add(side([[-2.35, 0.42], [2.4, 0.42], [2.58, 0.68], [2.3, 0.98], [0.75, 1.16], [-2.2, 1.22], [-2.42, 0.9]], 2.56, true), paint, 0, 0, 0);
+  add(side([[0.8, 1.1], [0.02, 1.74], [-1.35, 1.72], [-2.05, 1.16]], 2.1, true), dark, 0, 0, 0);
+  add(new THREE.BoxGeometry(1.7, 0.08, 1.2), paint, 0, 1.86, -0.62);  // roof panel
+  add(new THREE.BoxGeometry(0.42, 0.04, 4.0), new THREE.MeshBasicMaterial({ color: 0xffffff }), 0, 1.18, 0.4);  // racing stripe
+  add(new THREE.BoxGeometry(2.9, 0.1, 0.62), paint, 0, 1.62, -2.08);  // wing
+  add(new THREE.BoxGeometry(0.12, 0.42, 0.25), dark, -0.85, 1.4, -2.05);
+  add(new THREE.BoxGeometry(0.12, 0.42, 0.25), dark, 0.85, 1.4, -2.05);
+  add(new THREE.BoxGeometry(2.7, 0.22, 0.5), dark, 0, 0.5, 2.45);  // front splitter
+  const lamp = new THREE.MeshBasicMaterial({ color: 0xfff6d8 }), tail = new THREE.MeshBasicMaterial({ color: 0xff2a3a });
+  add(new THREE.BoxGeometry(0.62, 0.14, 0.1), lamp, -0.82, 0.84, 2.46);
+  add(new THREE.BoxGeometry(0.62, 0.14, 0.1), lamp, 0.82, 0.84, 2.46);
+  add(new THREE.BoxGeometry(0.7, 0.12, 0.08), tail, -0.8, 1.0, -2.55);
+  add(new THREE.BoxGeometry(0.7, 0.12, 0.08), tail, 0.8, 1.0, -2.55);
   const wheels = [];
   const wGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.5, 14); wGeo.rotateZ(Math.PI / 2);
   const wMat = new THREE.MeshStandardMaterial({ color: 0x0c0d16, roughness: 0.9 });
-  for (const [x, z] of [[-1.45, 1.55], [1.45, 1.55], [-1.45, -1.55], [1.45, -1.55]]) wheels.push(add(wGeo, wMat, x, 0.6, z));
+  const hubGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.52, 10); hubGeo.rotateZ(Math.PI / 2);
+  const hubMat = new THREE.MeshStandardMaterial({ color: 0xb8bed6, roughness: 0.3, metalness: 0.9 });
+  for (const [x, z] of [[-1.45, 1.55], [1.45, 1.55], [-1.45, -1.55], [1.45, -1.55]]) {
+    const w = add(wGeo, wMat, x, 0.6, z); w.add(new THREE.Mesh(hubGeo, hubMat)); wheels.push(w);
+  }
   const cone = new THREE.ConeGeometry(0.45, 2.2, 10); cone.rotateX(-Math.PI / 2);
   const flame = new THREE.Mesh(cone, new THREE.MeshBasicMaterial({ color: 0xff7a1a, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
   flame.position.set(0, 0.95, -3.4); flame.visible = false; g.add(flame);
   const core = new THREE.Mesh(cone, new THREE.MeshBasicMaterial({ color: 0xfff3c0, transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }));
   core.scale.set(0.5, 0.5, 0.6); core.position.z = 0.35; flame.add(core);
   // the light stays in the scene at 0 intensity when off: adding/removing lights recompiles every shader
-  const glow = new THREE.PointLight(0xff8a2a, 0, 14, 2); glow.position.set(0, 1, -4.2); g.add(glow);
+  // only your car carries an exhaust light: every light makes every surface slower to draw
+  let glow = null;
+  if (withLight) { glow = new THREE.PointLight(0xff8a2a, 0, 14, 2); glow.position.set(0, 1, -4.2); g.add(glow); }
   g.rotation.order = 'YXZ';
   scene.add(g);
   return { g, wheels, flame, glow };
 }
-function makeCar(team) {
-  const m = carMesh(TEAM_COL[team]);
+function makeCar(team, withLight) {
+  const m = carMesh(TEAM_COL[team], withLight);
   return { team, mesh: m, pos: new V3(), vel: new V3(), yaw: 0, pitch: 0, onGround: true, airT: 0, canDodge: false,
-    flipT: 0, flipF: 0, flipS: 0, jumpRoll: 0, stuckT: 0, backT: 0, surf: 0, up: new V3(0, 1, 0), fwd: new V3(0, 0, 1), boost: 33, boosting: false, prevJump: false, hitCd: 0, speedMul: 1,
-    input: { throttle: 0, steer: 0, pitch: 0, jump: false, boost: false } };
+    flipT: 0, flipF: 0, flipS: 0, jumpRoll: 0, stuckT: 0, backT: 0, dead: 0, att: false, surf: 0, up: new V3(0, 1, 0), fwd: new V3(0, 0, 1), boost: 33, boosting: false, prevJump: false, hitCd: 0, speedMul: 1,
+    input: { throttle: 0, steer: 0, pitch: 0, jump: false, boost: false, slide: false } };
 }
-const player = makeCar(0), bot = makeCar(1), cars = [player, bot];
+const player = makeCar(0, true);
+let cars = [player], teamSize = 1;
+/* 1v1, 2v2 or 3v3: you plus bot teammates, against bots */
+function setTeams(n) {
+  for (const c of cars) if (c !== player) { scene.remove(c.mesh.g); c.mesh.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+  teamSize = n; cars = [player];
+  for (let i = 1; i < n; i++) cars.push(makeCar(0));
+  for (let i = 0; i < n; i++) cars.push(makeCar(1));
+}
+setTeams(1);
 
 /* ---------- boost pads ---------- */
 const pads = [];
@@ -660,7 +686,7 @@ addEventListener('keydown', e => {
 addEventListener('keyup', e => { keys[e.code] = false; });
 addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
 
-const touch = { l: false, r: false, rev: false, jump: false, boost: false };
+const touch = { l: false, r: false, rev: false, jump: false, boost: false, slide: false };
 let touchUsed = false;
 addEventListener('touchstart', () => { if (!touchUsed) { touchUsed = true; syncTouchUi(); } }, { passive: true });
 for (const b of document.querySelectorAll('#touch button')) {
@@ -683,7 +709,7 @@ function readPlayer() {
   let thr = (k.KeyW || k.ArrowUp ? 1 : 0) - (k.KeyS || k.ArrowDown ? 1 : 0);
   let steer = (k.KeyD || k.ArrowRight ? 1 : 0) - (k.KeyA || k.ArrowLeft ? 1 : 0);
   let pitch = -thr;
-  let jump = !!k.Space, boost = !!(k.ShiftLeft || k.ShiftRight || k.KeyK);
+  let jump = !!k.Space, boost = !!(k.ShiftLeft || k.ShiftRight || k.KeyK), slide = !!(k.KeyE || k.KeyL);
   const pads_ = navigator.getGamepads ? navigator.getGamepads() : [];
   for (const gp of pads_) {
     if (!gp) continue;
@@ -693,7 +719,8 @@ function readPlayer() {
     const rt = gp.buttons[7] ? gp.buttons[7].value : 0, lt = gp.buttons[6] ? gp.buttons[6].value : 0;
     if (rt > 0.05 || lt > 0.05) thr = rt - lt;
     if (gp.buttons[0] && gp.buttons[0].pressed) jump = true;
-    if ((gp.buttons[1] && gp.buttons[1].pressed) || (gp.buttons[2] && gp.buttons[2].pressed)) boost = true;
+    if (gp.buttons[1] && gp.buttons[1].pressed) boost = true;
+    if ((gp.buttons[2] && gp.buttons[2].pressed) || (gp.buttons[4] && gp.buttons[4].pressed)) slide = true;
     const y = gp.buttons[3] && gp.buttons[3].pressed, st = gp.buttons[9] && gp.buttons[9].pressed;
     if (y && !padPrev.y) { ballCam = !ballCam; setCamLabel(); }
     if (st && !padPrev.st && inMatch()) togglePause();
@@ -705,11 +732,23 @@ function readPlayer() {
     if (!thr && !keys.KeyW && !keys.KeyS) { thr = touch.rev ? -1 : 1; pitch = touch.rev ? 1 : 0; }
     if (touch.jump) jump = true;
     if (touch.boost) boost = true;
+    if (touch.slide) slide = true;
   }
-  I.throttle = thr; I.steer = clamp(steer, -1, 1); I.pitch = clamp(pitch, -1, 1); I.jump = jump; I.boost = boost;
+  I.throttle = thr; I.steer = clamp(steer, -1, 1); I.pitch = clamp(pitch, -1, 1); I.jump = jump; I.boost = boost; I.slide = slide;
 }
 
 /* ---------- bot brain ---------- */
+function assignRoles() {
+  for (const team of [0, 1]) {
+    let best = null, bestD = Infinity;
+    for (const c of cars) {
+      if (c.team !== team || c.dead) continue;
+      const d = Math.hypot(c.pos.x - ball.pos.x, c.pos.z - ball.pos.z) - (c.att ? 6 : 0);  // the current attacker keeps the job unless clearly beaten
+      if (d < bestD) { bestD = d; best = c; }
+    }
+    for (const c of cars) if (c.team === team) c.att = c === best;
+  }
+}
 const SKILL = {
   rookie: { speed: 0.8, boostFloor: 70, jump: 0.35, aim: 2.6, lead: 0.5 },
   pro: { speed: 0.92, boostFloor: 30, jump: 0.75, aim: 3.2, lead: 0.85 },
@@ -737,14 +776,20 @@ function botThink(c, sk) {
     const aligned = (hx / hl) * ux + (hz / hl) * uz;
     if (toBeh < 7 || aligned > 0.75 || d0 < 6) { tx = bx; tz = bz; } else { tx = behX; tz = behZ; }
   }
+  const support = teamSize > 1 && !c.att;
+  if (support) {  // cover: sit between the ball and our goal, the second helper further back
+    const back = cars.filter(o => o.team === c.team && !o.att).indexOf(c);
+    tx = b.x * 0.4 + (back ? (b.x > 0 ? -10 : 10) : 0); tz = own + (b.z - own) * (back ? 0.15 : 0.35); urgent = false;
+  }
   tx = clamp(tx, -A.hx + 5, A.hx - 5); tz = clamp(tz, -A.hz + 5, A.hz - 5);  // never aim outside the arena
   const want = Math.atan2(tx - c.pos.x, tz - c.pos.z);
   const diff = wrapAng(want - c.yaw);
   I.steer = clamp(-diff * sk.aim, -1, 1);
   I.throttle = Math.abs(diff) > 1.6 ? 0.5 : 1;
   I.pitch = 0;
+  if (support && Math.hypot(tx - c.pos.x, tz - c.pos.z) < 6) I.throttle = 0;  // in position: wait there
   // jammed against a wall (or the ball against one): back out and turn for a moment
-  c.stuckT = c.onGround && state !== 'countdown' && Math.hypot(c.vel.x, c.vel.z) < 4 ? c.stuckT + STEP : 0;
+  c.stuckT = c.onGround && I.throttle && state !== 'countdown' && Math.hypot(c.vel.x, c.vel.z) < 4 ? c.stuckT + STEP : 0;
   if (c.stuckT > 0.8) { c.backT = 0.7; c.stuckT = 0; }
   if (c.backT > 0) { c.backT -= STEP; I.throttle = -1; I.steer = -I.steer; I.boost = false; I.jump = false; return; }
   const dist = Math.hypot(tx - c.pos.x, tz - c.pos.z);
@@ -800,7 +845,7 @@ function stepWall(c, dt, jp) {
   sp = c.vel.dot(f);
   const a = I.throttle ? (I.throttle * sp < 0 ? I.throttle * 50 : Math.abs(sp) < DRIVE * c.speedMul ? I.throttle * 26 : 0) : -Math.sign(sp) * Math.min(Math.abs(sp) / dt, MAP.coast);
   c.vel.addScaledVector(f, a * dt);
-  c.vel.addScaledVector(r, -c.vel.dot(r) * Math.min(1, MAP.grip * dt));
+  c.vel.addScaledVector(r, -c.vel.dot(r) * Math.min(1, MAP.grip * (I.slide ? 0.12 : 1) * dt));
   c.vel.y -= G * dt;
   c.vel.addScaledVector(n, -c.vel.dot(n));  // tyres stick: no speed into or away from the surface
   c.boosting = false;
@@ -819,6 +864,7 @@ function stepWall(c, dt, jp) {
   }
 }
 function stepCar(c, dt) {
+  if (c.dead > 0) { c.dead -= dt; if (c.dead <= 0) respawn(c); return; }
   const I = c.input;
   const jp = I.jump && !c.prevJump; c.prevJump = I.jump;
   if (c.flipT > 0) c.flipT -= dt;
@@ -829,7 +875,7 @@ function stepCar(c, dt) {
   if (c.onGround) {
     const sp = c.vel.x * sy + c.vel.z * cy;
     const turn = 2.5 * Math.min(1, Math.abs(sp) / 5) * (1 - 0.35 * Math.min(1, Math.abs(sp) / MAXCAR));
-    c.yaw -= I.steer * turn * dt * (sp < -0.5 ? -1 : 1);
+    c.yaw -= I.steer * turn * (I.slide ? 1.7 : 1) * dt * (sp < -0.5 ? -1 : 1);
     sy = Math.sin(c.yaw); cy = Math.cos(c.yaw);
     const sp2 = c.vel.x * sy + c.vel.z * cy;
     let a = 0;
@@ -838,7 +884,7 @@ function stepCar(c, dt) {
       else if (Math.abs(sp2) < maxDrive) a = I.throttle * 26;
     } else a = -Math.sign(sp2) * Math.min(Math.abs(sp2) / dt, MAP.coast);
     c.vel.x += sy * a * dt; c.vel.z += cy * a * dt;
-    const lat = c.vel.x * -cy + c.vel.z * sy, grip = Math.min(1, MAP.grip * dt);
+    const lat = c.vel.x * -cy + c.vel.z * sy, grip = Math.min(1, MAP.grip * (I.slide ? 0.12 : 1) * dt);
     c.vel.x -= -cy * lat * grip; c.vel.z -= sy * lat * grip;
     c.vel.y = 0;
     if (jp) { c.vel.y = 11.5; c.onGround = false; c.airT = 0; c.canDodge = true; c.pos.y += 0.05; if (c === player) sfx.jump(); }
@@ -909,6 +955,7 @@ function stepBall(dt) {
 }
 
 function carBall(c) {
+  if (c.dead) return;
   const sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), cp = Math.cos(c.pitch);
   const f = c.surf > 0 ? t1.copy(c.fwd) : t1.set(sy * cp, Math.sin(c.pitch), cy * cp);
   const a = t2.copy(c.pos).addScaledVector(c.up, 1.0).addScaledVector(f, -1.6);
@@ -934,20 +981,41 @@ function carBall(c) {
 }
 
 function carCar(a, b) {
+  if (a.dead || b.dead) return;
   const d = t1.copy(b.pos).sub(a.pos), dist = d.length();
   if (dist > 3.6 || dist < 1e-4) return;
   const n = d.multiplyScalar(1 / dist), ov = 3.6 - dist;
+  // demolition: an opponent hit at near top speed explodes and respawns at its goal
+  if (a.team !== b.team) {
+    if (a.vel.dot(n) > MAXCAR * 0.8) { demolish(b, a); return; }
+    if (-b.vel.dot(n) > MAXCAR * 0.8) { demolish(a, b); return; }
+  }
   a.pos.addScaledVector(n, -ov / 2); b.pos.addScaledVector(n, ov / 2);
   if (a.pos.y < 0) a.pos.y = 0; if (b.pos.y < 0) b.pos.y = 0;
   const vn = t2.copy(b.vel).sub(a.vel).dot(n);
   if (vn < 0) { const j = 1.4 * vn / 2; a.vel.addScaledVector(n, j); b.vel.addScaledVector(n, -j); if (-vn > 8) sfx.hit(-vn * 0.6); }
 }
 
+function demolish(victim, by) {
+  burst(t3.copy(victim.pos).add(UP), TEAM_COL[victim.team], 140, 22);
+  burst(t3, 0xffb340, 60, 14);
+  noise(0.6, 0.5, 900); tone(70, 0.6, 'sawtooth', 0.35, 30);
+  if (victim.surf > 0) leaveSurface(victim);
+  victim.dead = 3; victim.vel.set(0, 0, 0); victim.boosting = false;
+  if (victim === player) flash('DEMOLISHED', 'var(--coral)', 1400);
+  else if (by === player) flash('DEMOLITION!', 'var(--gold)', 1400);
+  cheer(0.6);
+}
+function respawn(c) {
+  const own = c.team === 0 ? -1 : 1;
+  c.pos.set((Math.random() - 0.5) * 20, 0, own * (A.hz - 6)); c.vel.set(0, 0, 0);
+  c.yaw = own < 0 ? 0 : Math.PI; c.pitch = 0; c.onGround = true; c.surf = 0; c.up.copy(UP); c.boost = 33; c.dead = 0;
+}
 function stepPads(dt) {
   for (const p of pads) {
     if (p.t > 0) { p.t -= dt; continue; }
     for (const c of cars) {
-      if (c.pos.y > 2.5 || c.boost >= 100) continue;
+      if (c.dead || c.pos.y > 2.5 || c.boost >= 100) continue;
       if (Math.hypot(c.pos.x - p.x, c.pos.z - p.z) < (p.big ? 3 : 2.2)) {
         c.boost = p.big ? 100 : Math.min(100, c.boost + 12);
         p.t = p.big ? 10 : 4;
@@ -1011,12 +1079,14 @@ const score = [0, 0];
 const inMatch = () => state === 'countdown' || state === 'play' || state === 'goal';
 const KICKOFFS = [[0, -44], [-22, -38], [22, -38], [-10, -48], [10, -48]];
 function resetPositions() {
-  const [x, z] = KICKOFFS[Math.floor(Math.random() * KICKOFFS.length)];
+  const spots = KICKOFFS.slice().sort(() => Math.random() - 0.5);  // each team takes n different spots, mirrored
   const set = (c, px, pz) => {
+    c.dead = 0;
     c.pos.set(px, 0, pz); c.vel.set(0, 0, 0); c.yaw = Math.atan2(-px, -pz); c.pitch = 0;
     c.onGround = true; c.flipT = 0; c.boost = 33; c.surf = 0; c.up.copy(UP); c.stuckT = c.backT = 0; c.prevJump = false; c.canDodge = false;
   };
-  set(player, x, z); set(bot, -x, -z);
+  cars.filter(c => c.team === 0).forEach((c, i) => set(c, spots[i][0], spots[i][1]));
+  cars.filter(c => c.team === 1).forEach((c, i) => set(c, -spots[i][0], -spots[i][1]));
   ball.pos.set(0, BR, 0); ball.vel.set(0, 0, 0); ball.visible = true;
   for (const p of pads) p.t = 0;
 }
@@ -1029,7 +1099,7 @@ let lastBeep = 4;
 function startMatch() {
   initAudio();
   score[0] = score[1] = 0; overtime = false; clockT = matchLen;
-  player.speedMul = 1; bot.speedMul = SKILL[difficulty].speed;
+  for (const c of cars) c.speedMul = c === player ? 1 : SKILL[difficulty].speed;
   $('menu').hidden = true;
   kickoff(); updateHud();
 }
@@ -1043,7 +1113,7 @@ function endMatch() {
   $('mLede').textContent = won ? 'Clean finish. Turn up the bot or play a longer match.' : 'The bot took this one. Try boosting into a dodge for harder shots.';
   $('play').textContent = 'Rematch';
   $('menu').hidden = false; syncTouchUi();
-  player.speedMul = bot.speedMul = 0.92;
+  for (const c of cars) c.speedMul = 0.92;
   resetPositions();
 }
 function scored(team) {
@@ -1075,7 +1145,7 @@ function togglePause() {
 $('resume').onclick = () => togglePause();
 $('quit').onclick = () => {
   paused = false; $('pause').hidden = true;
-  state = 'menu'; player.speedMul = bot.speedMul = 0.92;
+  state = 'menu'; for (const c of cars) c.speedMul = 0.92;
   $('mEyebrow').textContent = '1v1 · Rocket-car soccer'; $('mTitle').innerHTML = 'Nitro<br>Kickoff';
   $('mFinal').hidden = true; $('play').textContent = 'Kick off';
   $('mLede').textContent = 'Drive, jump and boost your car into a ball the size of a truck. Outscore the bot before the clock runs out. Pick a stadium: the neon dome, a farm ground packed with potato fans, or a slippery ice rink.';
@@ -1092,6 +1162,7 @@ function seg(id, cb) {
 }
 seg('segDiff', v => { difficulty = v; });
 seg('segMap', v => buildMap(v));
+seg('segTeams', v => { setTeams(+v); for (const c of cars) c.speedMul = 0.92; resetPositions(); });
 seg('segLen', v => { matchLen = +v; if (!inMatch()) { clockT = matchLen; updateHud(); } });
 $('play').onclick = startMatch;
 
@@ -1114,9 +1185,9 @@ function updateBoostUi() {
 
 function tick(dt) {
   const attract = state === 'menu' || state === 'over';
-  if (attract) { botThink(player, SKILL.pro); player.input.jump = player.input.jump; }
-  else readPlayer();
-  botThink(bot, attract ? SKILL.pro : SKILL[difficulty]);
+  if (!attract) readPlayer();
+  assignRoles();
+  for (const c of cars) if (c !== player || attract) botThink(c, attract ? SKILL.pro : SKILL[difficulty]);
 
   if (state === 'countdown') {
     cdT -= dt;
@@ -1126,7 +1197,7 @@ function tick(dt) {
     return;
   }
   for (const c of cars) stepCar(c, dt);
-  carCar(player, bot);
+  for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) carCar(cars[i], cars[j]);
   if (ball.visible) {
     stepBall(dt);
     for (const c of cars) carBall(c);
@@ -1135,6 +1206,10 @@ function tick(dt) {
   }
   stepPads(dt);
   for (const c of cars) {
+    if (c.input.slide && c.onGround && c.surf === 0 && c.vel.lengthSq() > 100) {
+      const sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
+      for (const side of [-1.45, 1.45]) emit(c.pos.x - sy * 1.55 - cy * side, 0.3, c.pos.z - cy * 1.55 + sy * side, (Math.random() - .5) * 2, 1 + Math.random(), (Math.random() - .5) * 2, 0x9aa0b8, 0.7);
+    }
     if (c.vel.lengthSq() > (MAXCAR * 0.92) ** 2) {  // supersonic: white streaks off the rear wheels
       const f = c.surf > 0 ? c.fwd : t1.set(Math.sin(c.yaw), 0, Math.cos(c.yaw)), u = c.up, r = t2.crossVectors(f, u);
       for (const side of [-1.4, 1.4]) emit(c.pos.x - f.x * 1.6 + r.x * side + u.x * 0.3, c.pos.y - f.y * 1.6 + r.y * side + u.y * 0.3, c.pos.z - f.z * 1.6 + r.z * side + u.z * 0.3, 0, 0.5, 0, 0xffffff, 0.35);
@@ -1216,7 +1291,8 @@ function updateVisuals(dt, time) {
     for (const w of c.mesh.wheels) w.rotation.x += sp * dt / 0.6;
     c.mesh.flame.visible = c.boosting;
     if (c.boosting) { const w = 0.85 + Math.random() * 0.3; c.mesh.flame.scale.set(w, w, 0.8 + Math.random() * 0.7); }
-    c.mesh.glow.intensity = c.boosting ? 1.6 + Math.random() * 0.8 : 0;
+    if (c.mesh.glow) c.mesh.glow.intensity = c.boosting ? 1.6 + Math.random() * 0.8 : 0;
+    g.visible = !c.dead;
   }
   ballGroup.visible = ball.visible; ballRing.visible = ball.visible;
   ballGroup.position.copy(ball.pos);
@@ -1249,7 +1325,7 @@ let savedMap = 'neon';
 try { savedMap = localStorage.getItem('kickoff.map') || 'neon'; } catch (e) {}
 buildMap(savedMap);
 for (const b of $('segMap').children) b.classList.toggle('on', b.dataset.v === mapId);
-resetPositions(); player.speedMul = bot.speedMul = 0.92; updateHud(); setCamLabel(); syncTouchUi();
+resetPositions(); for (const c of cars) c.speedMul = 0.92; updateHud(); setCamLabel(); syncTouchUi();
 let last = performance.now(), acc = 0;
 /* Automatic quality: if frames stay slow for a few seconds, draw at a lower resolution, then hide the crowd. */
 function checkQuality(dt) {
