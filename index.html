@@ -47,6 +47,22 @@ body.tm .boost.on{background:radial-gradient(circle,rgba(255,170,50,.45),rgba(20
 .feed{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));left:calc(14px + env(safe-area-inset-left,0px));max-width:min(300px,38vw);display:flex;flex-direction:column;gap:2px;font:600 13px/1.25 var(--body);text-shadow:0 1px 3px rgba(0,0,0,.85)}
 .feed b.t0{color:#7fa4ff} .feed b.t1{color:#ffa55c} .feed span{color:#eef0ff}
 @media (max-width:560px){.feed{font-size:11px}.feed div:nth-child(n+4){display:none}}
+.btns{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.go.alt{background:transparent;color:var(--ink);box-shadow:none;border:1px solid var(--line)}
+.go:disabled{opacity:.45;cursor:default;filter:none}
+.roomcode{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.roomcode span{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+.roomcode b{font:700 italic 44px/1 var(--display);letter-spacing:.14em}
+.roomcode button{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 12px;font:600 13px var(--body);cursor:pointer}
+.teams{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.onteam{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:6px;min-height:92px}
+.onteam h3{margin:0;font:700 italic 14px var(--display);letter-spacing:.1em;text-transform:uppercase}
+.onteam.t0 h3{color:#7fa4ff} .onteam.t1 h3{color:#ffa55c}
+.onteam div{font-size:14px}.onteam .me{font-weight:600}.onteam .bot{color:var(--dim)}
+.onteam button{align-self:flex-start;margin-top:auto;background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:5px 10px;font:600 12px var(--body);cursor:pointer}
+#onCodeIn{width:128px;background:transparent;border:1px solid var(--line);border-radius:8px;color:var(--ink);font:700 22px var(--display);letter-spacing:.2em;text-transform:uppercase;padding:9px 12px;text-align:center}
+#pingUi{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));right:calc(14px + env(safe-area-inset-right,0px));font:600 12px var(--body);color:var(--dim);display:flex;gap:10px;align-items:center;pointer-events:auto}
+#pingUi button{background:rgba(10,12,30,.7);border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 9px;font:600 12px var(--body);cursor:pointer}
 .hint{position:absolute;left:calc(16px + env(safe-area-inset-left,0px));bottom:calc(14px + env(safe-area-inset-bottom,0px));font-size:12px;color:var(--dim);letter-spacing:.04em}
 .hint kbd{font-family:var(--body);border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--ink)}
 .overlay{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,rgba(7,8,22,.55),rgba(7,8,22,.9));padding-block:16px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));overflow-y:auto}
@@ -89,9 +105,9 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
 <div id="game"></div>
 <div class="hud" id="hud">
   <div class="board">
-    <div class="tm t0"><small>YOU</small><span id="s0">0</span></div>
+    <div class="tm t0" id="tmL"><small>YOU</small><span id="s0">0</span></div>
     <div class="clock"><span id="clock">3:00</span><small id="ot"></small></div>
-    <div class="tm t1"><span id="s1">0</span><small>BOT</small></div>
+    <div class="tm t1" id="tmR"><span id="s1">0</span><small id="lblR">BOT</small></div>
   </div>
   <div class="boost" id="boostUi">
     <svg viewBox="0 0 100 100"><circle class="trk" cx="50" cy="50" r="42"></circle><circle class="ring" id="ring" cx="50" cy="50" r="42"></circle></svg>
@@ -99,6 +115,7 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
   </div>
   <div class="flash" id="flash"></div>
   <div class="feed" id="feed"></div>
+  <div id="pingUi" hidden><span id="pingTxt"></span><button id="leaveBtn">Leave match</button></div>
   <div class="hint" id="hint"><kbd>C</kbd> ball cam: <span id="camState">on</span> · <kbd>P</kbd> pause · <kbd>M</kbd> sound</div>
 </div>
 
@@ -119,7 +136,7 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
       <div class="opt"><span>Stadium</span><div class="seg" id="segMap"><button id="mGrass" data-v="grass" class="on">Grasslands</button><button id="mNeon" data-v="neon">Neon Dome</button><button id="mSpud" data-v="spud">Spud Bowl</button><button id="mFrost" data-v="frost">Frost Rink</button></div></div>
       <div class="opt"><span>Match length</span><div class="seg" id="segLen"><button id="l2" data-v="120">2 min</button><button id="l3" data-v="180" class="on">3 min</button><button id="l5" data-v="300">5 min</button></div></div>
     </div>
-    <button class="go" id="play">Kick off</button>
+    <div class="btns"><button class="go" id="play">Kick off</button><button class="go alt" id="onlineBtn">Play online</button></div>
     <p class="record" id="record">No matches played yet.</p>
     <dl class="keys">
       <dt><kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dt><dd>Drive and steer (arrow keys work too)</dd>
@@ -131,6 +148,34 @@ button:focus-visible{outline:2px solid var(--teal);outline-offset:3px}
       <dt><kbd>C</kbd></dt><dd>Toggle ball cam</dd>
       <dt>Gamepad</dt><dd>RT/LT drive, A jump, B boost, X or LB powerslide, Y ball cam</dd>
     </dl>
+  </div>
+</div>
+
+<div class="overlay" id="online" hidden>
+  <div class="card">
+    <p class="eyebrow">Play with other people</p>
+    <h1>Online<br>match</h1>
+    <div id="onAuth" hidden>
+      <p class="lede">Online matches use your Deluxe account, so everyone in the room has a name. Sign in to play.</p>
+      <button class="go" id="onSignIn">Sign in with Deluxe Main</button>
+    </div>
+    <div id="onJoin" hidden>
+      <div class="btns"><button class="go" id="onCreate">Create room</button></div>
+      <div class="opt"><span>Or join a friend's room</span><div class="btns"><input id="onCodeIn" maxlength="5" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="CODE" aria-label="Room code"><button class="go alt" id="onJoinBtn">Join</button></div></div>
+    </div>
+    <div id="onRoom" hidden>
+      <div class="roomcode"><span>Room code</span><b id="onCode">----</b><button id="onCopy">Copy invite link</button></div>
+      <div class="teams" id="onPlayers"></div>
+      <div class="opts">
+        <div class="opt"><span>Stadium</span><div class="seg" id="onMap"><button data-v="grass">Grasslands</button><button data-v="neon">Neon Dome</button><button data-v="spud">Spud Bowl</button><button data-v="frost">Frost Rink</button></div></div>
+        <div class="opt"><span>Match length</span><div class="seg" id="onLen"><button data-v="120">2 min</button><button data-v="180">3 min</button><button data-v="300">5 min</button></div></div>
+        <div class="opt"><span>Bots that fill empty spots</span><div class="seg" id="onDiff"><button data-v="rookie">Rookie</button><button data-v="pro">Pro</button><button data-v="ace">Ace</button></div></div>
+      </div>
+      <p class="lede" id="onNote"></p>
+      <div class="btns"><button class="go" id="onStart">Start match</button><button class="go alt" id="onLeave">Leave room</button></div>
+    </div>
+    <p class="lede" id="onMsg" role="status"></p>
+    <div class="btns"><button class="go alt" id="onClose">Back to menu</button></div>
   </div>
 </div>
 
@@ -320,9 +365,9 @@ function drawScreens() {
     g.fillStyle = MAP.screen; g.fillRect(0, 0, w, h);
     g.fillStyle = '#3b73ff'; g.fillRect(0, 0, 170, h); g.fillStyle = '#ff7a1f'; g.fillRect(w - 170, 0, 170, h);
     g.textAlign = 'center'; g.textBaseline = 'middle';
-    g.fillStyle = '#ffffff'; g.font = 'italic 700 30px system-ui,sans-serif'; g.fillText('YOU', 85, 50);
+    g.fillStyle = '#ffffff'; g.font = 'italic 700 30px system-ui,sans-serif'; g.fillText(net.active ? 'BLUE' : 'YOU', 85, 50);
     g.font = 'italic 700 96px system-ui,sans-serif'; g.fillText(String(score[0]), 85, 125);
-    g.fillStyle = '#2a0a04'; g.font = 'italic 700 30px system-ui,sans-serif'; g.fillText('BOT', w - 85, 50);
+    g.fillStyle = '#2a0a04'; g.font = 'italic 700 30px system-ui,sans-serif'; g.fillText(net.active ? 'ORANGE' : 'BOT', w - 85, 50);
     g.font = 'italic 700 96px system-ui,sans-serif'; g.fillText(String(score[1]), w - 85, 125);
     g.fillStyle = '#ffffff'; g.font = '600 56px system-ui,sans-serif';
     g.fillText((overtime ? '+' : '') + Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'), w / 2, 92);
@@ -687,7 +732,7 @@ function makeCar(team, withLight) {
     flipT: 0, flipF: 0, flipS: 0, jumpRoll: 0, stuckT: 0, backT: 0, dead: 0, att: false, surf: 0, up: new V3(0, 1, 0), fwd: new V3(0, 0, 1), boost: 33, boosting: false, prevJump: false, hitCd: 0, speedMul: 1,
     input: { throttle: 0, steer: 0, pitch: 0, jump: false, boost: false, slide: false } };
 }
-const player = makeCar(0, true);
+let player = makeCar(0, true);
 let cars = [player], teamSize = 1;
 /* 1v1, 2v2 or 3v3: you plus bot teammates, against bots */
 function setTeams(n) {
@@ -1138,7 +1183,7 @@ function carBall(c) {
       ball.vel.addScaledVector(n, push);
       if (c.onGround) ball.vel.y += 2.5;
       c.hitCd = 0.15;
-      sfx.hit(-vn + push);
+      sfx.hit(-vn + push); netFx({ k: 'hit', p: r1(-vn + push) });
       for (let i = 0; i < 10; i++) emit(ball.pos.x - n.x * BR, ball.pos.y - n.y * BR, ball.pos.z - n.z * BR, (Math.random() - .5) * 14, Math.random() * 8, (Math.random() - .5) * 14, 0xffffff, 0.35);
     }
     c.vel.addScaledVector(n, vn * 0.25);
@@ -1168,6 +1213,7 @@ function demolish(victim, by) {
   if (victim.surf > 0) leaveSurface(victim);
   victim.dead = 3; victim.vel.set(0, 0, 0); victim.boosting = false;
   feed(null, by.team, by.name + ' demolished ' + victim.name);
+  netFx({ k: 'demo', i: cars.indexOf(victim), by: cars.indexOf(by) });
   if (victim === player) flash('DEMOLISHED', 'var(--coral)', 1400);
   else if (by === player) flash('DEMOLITION!', 'var(--gold)', 1400);
   cheer(0.6);
@@ -1242,6 +1288,7 @@ if (D) {
 /* ---------- match flow ---------- */
 let state = 'menu', paused = false, cdT = 0, goalT = 0, clockT = 180, matchLen = 180, overtime = false;
 const score = [0, 0];
+const net = { ws: null, active: false, host: false, started: false, id: null, code: '', lobby: null, ping: 0, n: 0, seq: 0, jn: 0, prevJ: false, snap: null, snapAt: 0, lastSnap: 0, lastPing: 0, hist: [], pendingCreate: false };  // online play state, see below
 const inMatch = () => state === 'countdown' || state === 'play' || state === 'goal';
 const KICKOFFS = [[0, -44], [-22, -38], [22, -38], [-10, -48], [10, -48]];
 function resetPositions() {
@@ -1273,14 +1320,15 @@ function startMatch() {
 }
 function endMatch() {
   state = 'over';
-  const won = score[0] > score[1];
-  addResult(score[0], score[1]);
-  $('mEyebrow').textContent = won ? 'Full time · you win' : 'Full time · bot wins';
+  const my = player.team, won = score[my] > score[1 - my];
+  addResult(score[my], score[1 - my]);
+  $('mEyebrow').textContent = won ? (net.active ? 'Full time · your team wins' : 'Full time · you win') : (net.active ? 'Full time · your team loses' : 'Full time · bot wins');
   $('mTitle').innerHTML = won ? 'Winner' : 'Next<br>time';
-  $('fA').textContent = score[0]; $('fB').textContent = score[1]; $('mFinal').hidden = false;
-  $('mLede').textContent = won ? 'Clean finish. Turn up the bot or play a longer match.' : 'The bot took this one. Try boosting into a dodge for harder shots.';
-  $('play').textContent = 'Rematch';
+  $('fA').textContent = score[my]; $('fB').textContent = score[1 - my]; $('mFinal').hidden = false;
+  $('mLede').textContent = net.active ? 'Back in the lobby you can change the teams or settings and play again.' : won ? 'Clean finish. Turn up the bot or play a longer match.' : 'The bot took this one. Try boosting into a dodge for harder shots.';
+  $('play').textContent = net.active ? 'Back to lobby' : 'Rematch';
   $('menu').hidden = false; syncTouchUi();
+  if (net.active) return;  // the host keeps the final positions on screen until the lobby
   for (const c of cars) c.speedMul = 0.92;
   resetPositions();
 }
@@ -1299,7 +1347,8 @@ function scored(team) {
   feed(null, team, lt ? (lt.team === team ? lt.name + ' scored!' : 'Own goal by ' + lt.name) : 'GOAL!');
   chat(team, ['Nice shot!', 'Yes!', 'Got it!'][Math.floor(Math.random() * 3)], 900);
   chat(1 - team, ['Whoops...', 'My bad!', 'Nice one!'][Math.floor(Math.random() * 3)], 1500);
-  flash(team === 0 ? 'GOAL!' : 'BOT SCORES', team === 0 ? 'var(--teal)' : 'var(--coral)', 2000);
+  netFx({ k: 'goal', team });
+  flash(team === player.team ? 'GOAL!' : (net.active ? 'THEY SCORE' : 'BOT SCORES'), team === player.team ? 'var(--teal)' : 'var(--coral)', 2000);
   state = 'goal'; goalT = 3;
   updateHud();
 }
@@ -1310,15 +1359,18 @@ function feed(who, team, text) {
   $('feed').append(row);
   while ($('feed').children.length > 6) $('feed').firstChild.remove();
   setTimeout(() => row.remove(), 7000);
+  netFx({ k: 'feed', w: who, tm: team, x: text });
 }
-const botFrom = team => { const l = cars.filter(c => c.team === team && c !== player); return l.length ? l[Math.floor(Math.random() * l.length)] : null; };
+const botFrom = team => { const l = cars.filter(c => c.team === team && c !== player && !c.pid); return l.length ? l[Math.floor(Math.random() * l.length)] : null; };
 function chat(team, text, delay) { setTimeout(() => { const c = botFrom(team); if (c && inMatch()) feed(c.name, c.team, text); }, delay); }
 let flashTimer = 0;
-function flash(text, color, ms) {
+function flash(text, color, ms, everyone) {
+  if (everyone) netFx({ k: 'flash', x: text, c: color, ms });
   const el = $('flash'); el.textContent = text; el.style.color = color; el.classList.add('on');
   clearTimeout(flashTimer); flashTimer = setTimeout(() => el.classList.remove('on'), ms);
 }
 function togglePause() {
+  if (net.active) return;  // a shared match cannot be paused
   paused = !paused; $('pause').hidden = !paused;
   if (boostGain) boostGain.gain.value = 0;
   syncTouchUi();
@@ -1333,7 +1385,7 @@ $('quit').onclick = () => {
   $('mLede').textContent = 'Drive, jump and boost your car into a ball the size of a truck. Outscore the bot before the clock runs out. Pick a stadium: classic Grasslands, the neon dome, a farm ground packed with potato fans, or a slippery ice rink.';
   $('menu').hidden = false; resetPositions(); syncTouchUi();
 };
-document.addEventListener('visibilitychange', () => { if (document.hidden && inMatch() && !paused) togglePause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && inMatch() && !paused && !net.active) togglePause(); });
 function seg(id, cb) {
   const el = $(id);
   el.addEventListener('click', e => {
@@ -1346,10 +1398,16 @@ seg('segDiff', v => { difficulty = v; });
 seg('segMap', v => buildMap(v));
 seg('segTeams', v => { setTeams(+v); for (const c of cars) c.speedMul = 0.92; resetPositions(); });
 seg('segLen', v => { matchLen = +v; if (!inMatch()) { clockT = matchLen; updateHud(); } });
-$('play').onclick = startMatch;
+$('play').onclick = () => {
+  if (!net.active) return startMatch();
+  if (net.host) netSend({ t: 'end' });  // everyone goes back to the lobby
+  net.started = false; restoreOffline(); state = 'menu'; syncTouchUi(); openOnline();
+};
 
 function updateHud() {
-  $('s0').textContent = score[0]; $('s1').textContent = score[1];
+  const my = player.team;
+  $('s0').textContent = score[my]; $('s1').textContent = score[1 - my];
+  $('tmL').className = 'tm t' + my; $('tmR').className = 'tm t' + (1 - my); $('lblR').textContent = net.active ? 'OPP' : 'BOT';
   const t = Math.max(0, Math.ceil(overtime ? clockT : clockT));
   $('clock').textContent = (overtime ? '+' : '') + Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0');
   $('ot').textContent = overtime ? 'OVERTIME' : '';
@@ -1365,30 +1423,8 @@ function updateBoostUi() {
   $('ring').style.strokeDashoffset = String(198 * (1 - b / 100));
 }
 
-function tick(dt) {
-  const attract = state === 'menu' || state === 'over';
-  predictBall();
-  if (!attract) readPlayer();
-  assignRoles();
-  for (const c of cars) if (c !== player || attract) botThink(c, attract ? SKILL.pro : SKILL[difficulty]);
-
-  if (state === 'countdown') {
-    cdT -= dt;
-    const n = Math.ceil(cdT);
-    if (n < lastBeep && n > 0) { lastBeep = n; sfx.beep(false); flash(String(n), 'var(--ink)', 700); }
-    if (cdT <= 0) { state = 'play'; sfx.beep(true); flash('GO', 'var(--gold)', 600); }
-    return;
-  }
-  for (const c of cars) stepCar(c, dt);
-  for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) carCar(cars[i], cars[j]);
-  if (ball.visible) {
-    stepBall(dt);
-    for (const c of cars) carBall(c);
-    if (Math.abs(ball.pos.z) > A.hz + BR) scored(ball.pos.z > 0 ? 0 : 1);
-    else if (Math.abs(ball.pos.z) > A.hz - 16 && Math.abs(ball.pos.x) < 16 && ball.vel.lengthSq() > 324) cheer(0.4);  // a shot on goal: the crowd stands up
-  }
-  stepPads(dt);
-  for (const c of cars) {
+/* a car's smoke, streaks and boost flame: the host and every guest draw these for every car */
+function carFx(c) {
     if (c.input.slide && c.onGround && c.surf === 0 && c.vel.lengthSq() > 100) {
       const sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
       for (const side of [-1.45, 1.45]) emit(c.pos.x - sy * 1.55 - cy * side, 0.3, c.pos.z - cy * 1.55 + sy * side, (Math.random() - .5) * 2, 1 + Math.random(), (Math.random() - .5) * 2, 0x9aa0b8, 0.7);
@@ -1404,7 +1440,32 @@ function tick(dt) {
       emit(c.pos.x - f.x * 3.3 + u.x * 0.95 + (Math.random() - .5) * .5, c.pos.y - f.y * 3.3 + u.y * 0.95, c.pos.z - f.z * 3.3 + u.z * 0.95 + (Math.random() - .5) * .5,
         -f.x * 8 + (Math.random() - .5) * 3, -f.y * 8 + Math.random() * 2, -f.z * 8 + (Math.random() - .5) * 3, Math.random() < .5 ? 0xffb340 : TEAM_COL[c.team], 0.45);
     }
+}
+
+function tick(dt) {
+  const attract = state === 'menu' || state === 'over';
+  predictBall();
+  if (!attract) readPlayer();
+  assignRoles();
+  for (const c of cars) { if (c.remote && !attract) applyRemoteInput(c); else if (c !== player || attract) botThink(c, attract ? SKILL.pro : SKILL[difficulty]); }
+
+  if (state === 'countdown') {
+    cdT -= dt;
+    const n = Math.ceil(cdT);
+    if (n < lastBeep && n > 0) { lastBeep = n; sfx.beep(false); flash(String(n), 'var(--ink)', 700, true); }
+    if (cdT <= 0) { state = 'play'; sfx.beep(true); flash('GO', 'var(--gold)', 600, true); }
+    return;
   }
+  for (const c of cars) stepCar(c, dt);
+  for (let i = 0; i < cars.length; i++) for (let j = i + 1; j < cars.length; j++) carCar(cars[i], cars[j]);
+  if (ball.visible) {
+    stepBall(dt);
+    for (const c of cars) carBall(c);
+    if (Math.abs(ball.pos.z) > A.hz + BR) scored(ball.pos.z > 0 ? 0 : 1);
+    else if (Math.abs(ball.pos.z) > A.hz - 16 && Math.abs(ball.pos.x) < 16 && ball.vel.lengthSq() > 324) cheer(0.4);  // a shot on goal: the crowd stands up
+  }
+  stepPads(dt);
+  for (const c of cars) carFx(c);
   if (state === 'play') {
     if (overtime) clockT += dt;
     else {
@@ -1412,7 +1473,7 @@ function tick(dt) {
       if (clockT <= 0) {
         clockT = 0;
         if (score[0] !== score[1]) { sfx.beep(true); endMatch(); }
-        else { overtime = true; clockT = 0; flash('OVERTIME', 'var(--gold)', 1600); kickoff(); }
+        else { overtime = true; clockT = 0; flash('OVERTIME', 'var(--gold)', 1600, true); kickoff(); }
       }
     }
   } else if (state === 'goal') {
@@ -1522,6 +1583,281 @@ buildMap(savedMap);
 for (const b of $('segMap').children) b.classList.toggle('on', b.dataset.v === mapId);
 resetPositions(); for (const c of cars) c.speedMul = 0.92; updateHud(); setCamLabel(); syncTouchUi();
 let last = performance.now(), acc = 0;
+/* ---------- online play: Deluxe Games rooms ----------
+   The host's browser runs the whole match (cars, ball, bots) and sends 30 snapshots a second;
+   everyone else sends their controls. Each guest also drives their own car locally, so it
+   answers at once, and the host's snapshot gently corrects it. Other cars and the ball are
+   extrapolated from the latest snapshot and eased into place, so they move smoothly. */
+const ARENA_URL = (() => {
+  try { const q = new URLSearchParams(location.search); if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname) && q.get('server')) return q.get('server'); } catch (e) {}
+  return 'wss://deluxe-drive.deluxelordd.workers.dev';
+})();
+const STATE_CODE = { menu: 0, countdown: 1, play: 2, goal: 3, over: 4 }, STATE_NAME = ['menu', 'countdown', 'play', 'goal', 'over'];
+const r1 = v => Math.round(v * 10) / 10, r2 = v => Math.round(v * 100) / 100, r3 = v => Math.round(v * 1000) / 1000;
+const BOT_NAMES = ['REX', 'PIXEL', 'TURBO', 'NOVA', 'BLITZ', 'ECHO'];
+
+function netSend(m) { if (net.ws && net.ws.readyState === 1) net.ws.send(JSON.stringify(m)); }
+function netFx(m) { if (net.active && net.host) netSend(Object.assign({ t: 'fx' }, m)); }
+
+function disposeCars() {
+  for (const c of cars) { if (c.tag) c.tag.remove(); scene.remove(c.mesh.g); c.mesh.g.traverse(o => { if (o.geometry) o.geometry.dispose(); }); }
+}
+/* Cars for an online match: blue slots then orange slots, the same order on every player's screen. */
+function buildOnlineCars(roster) {
+  disposeCars();
+  const size = Math.max(1, ...[0, 1].map(t => roster.filter(r => r.team === t).length));
+  teamSize = size; cars = []; let k = 0;
+  for (let t = 0; t < 2; t++) {
+    const humans = roster.filter(r => r.team === t);
+    for (let i = 0; i < size; i++) {
+      const r = humans[i], mine = !!r && r.id === net.id, c = makeCar(t, mine);
+      if (r) { c.pid = r.id; c.name = String(r.name).toUpperCase().slice(0, 14); c.remote = net.host && !mine; } else c.name = BOT_NAMES[k++ % BOT_NAMES.length];
+      if (mine) player = c;
+      cars.push(c);
+    }
+  }
+  for (const c of cars) if (c !== player) { c.tag = document.createElement('div'); c.tag.className = 'ntag t' + c.team; c.tag.textContent = c.name; $('hud').append(c.tag); }
+}
+function restoreOffline() {
+  disposeCars();
+  player = makeCar(0, true); cars = [player]; delete player.pid;
+  const on = $('segTeams').querySelector('.on'); setTeams(on ? +on.dataset.v : 1);
+  for (const c of cars) c.speedMul = 0.92;
+  resetPositions(); ball.lastTouch = null;
+}
+
+/* a remote player's controls, as the host applies them */
+function applyRemoteInput(c) {
+  const m = c.netIn, I = c.input;
+  if (!m) { I.throttle = I.steer = I.pitch = 0; I.jump = I.boost = I.slide = false; return; }
+  const n = v => Math.max(-1, Math.min(1, +v || 0));
+  I.throttle = n(m.th); I.steer = n(m.st); I.pitch = n(m.pi); I.boost = !!m.b; I.slide = !!m.sl;
+  I.jump = !!m.j || c.jumpPulse; c.jumpPulse = false;  // a quick tap that was over before the next tick still counts
+}
+function onRemoteInput(m) {
+  const c = cars.find(o => o.pid === m.id); if (!c || !c.remote) return;
+  if (m.jn > (c.jn || 0)) c.jumpPulse = true;
+  c.jn = m.jn | 0; c.ack = m.q | 0; c.ackAt = performance.now(); c.netIn = m;
+}
+
+/* ----- host: snapshots ----- */
+function makeSnapshot() {
+  const cs = cars.map(c => [r2(c.pos.x), r2(c.pos.y), r2(c.pos.z), r2(c.vel.x), r2(c.vel.y), r2(c.vel.z), r3(c.yaw), r3(c.pitch), c.surf,
+    r2(c.up.x), r2(c.up.y), r2(c.up.z), r2(c.fwd.x), r2(c.fwd.y), r2(c.fwd.z), Math.round(c.boost),
+    (c.boosting ? 1 : 0) | (c.onGround ? 2 : 0) | (c.input.slide ? 4 : 0) | (c.dead > 0 ? 8 : 0), r2(c.flipT), r2(c.flipF), r2(c.flipS), c.ack || 0, c.ackAt ? r3(Math.min(0.15, (performance.now() - c.ackAt) / 1000)) : 0]);  // ..., ack, seconds the host has run that control
+  return { t: 'snap', n: ++net.n, st: STATE_CODE[state] || 0, cd: r1(cdT), clk: r1(clockT), ot: overtime ? 1 : 0, sc: [score[0], score[1]], bv: ball.visible ? 1 : 0,
+    b: [r2(ball.pos.x), r2(ball.pos.y), r2(ball.pos.z), r2(ball.vel.x), r2(ball.vel.y), r2(ball.vel.z)], p: pads.map(p => (p.t > 0 ? '0' : '1')).join(''), c: cs };
+}
+
+/* ----- guest: snapshots in ----- */
+const Sx = { ball: new V3() };
+function onSnapshot(m) {
+  const first = !net.snap, prev = state;
+  net.snap = m; net.snapAt = performance.now();
+  state = STATE_NAME[m.st] || 'play'; cdT = m.cd; clockT = m.clk; overtime = !!m.ot; score[0] = m.sc[0]; score[1] = m.sc[1];
+  ball.visible = !!m.bv;
+  for (let i = 0; i < pads.length; i++) pads[i].t = m.p[i] === '1' ? 0 : 5;
+  const me = cars.indexOf(player), e = m.c[me];
+  if (e && !player.remote) reconcile(e, first || (prev === 'countdown') !== (state === 'countdown') || (prev === 'over') !== (state === 'over'));
+  if (state === 'over' && prev !== 'over') endMatch();
+}
+function snapCarTo(c, e) {
+  c.pos.set(e[0], e[1], e[2]); c.vel.set(e[3], e[4], e[5]); c.yaw = e[6]; c.pitch = e[7]; c.surf = e[8];
+  c.up.set(e[9], e[10], e[11]); c.fwd.set(e[12], e[13], e[14]); c.onGround = !!(e[16] & 2);
+}
+/* Compare the host's state for our car with what we had predicted when we sent the same control (its ack),
+   and pull the car toward the host's version only if they have really drifted apart. */
+function reconcile(e, hard) {
+  player.dead = (e[16] & 8) ? 1 : 0;
+  if (hard || player.dead || e[8] !== player.surf) { snapCarTo(player, e); player.boost = e[15]; net.hist.length = 0; return; }
+  if (Math.abs(player.boost - e[15]) > 6) player.boost = e[15];
+  const q = e[20], h = net.hist.find(x => x.q === q);
+  while (net.hist.length && net.hist[0].q < q) net.hist.shift();
+  if (!h) return;
+  const run = e[21] || 0;  // the host has driven on with that control for a moment since
+  const ex = e[0] - (h.x + h.vx * run), ey = e[1] - (h.y + h.vy * run), ez = e[2] - (h.z + h.vz * run), err = Math.hypot(ex, ey, ez);
+  if (err > 9) return snapCarTo(player, e);
+  if (err > 0.8) {  // beyond normal timing noise: ease toward the host's version
+    player.pos.x += ex * 0.2; player.pos.y += ey * 0.2; player.pos.z += ez * 0.2;
+    player.vel.x += (e[3] - h.vx) * 0.2; player.vel.y += (e[4] - h.vy) * 0.2; player.vel.z += (e[5] - h.vz) * 0.2;  // (acceleration over `run` is small enough to ignore)
+  }
+}
+const lerpAng = (a, b, k) => a + wrapAng(b - a) * k;
+/* the guest's frame: drive our own car, ease everything else toward the latest snapshot */
+function guestFrame(dt, now) {
+  readPlayer();
+  acc += dt;
+  while (acc >= STEP) { if ((state === 'play' || state === 'goal') && !player.dead) stepCar(player, STEP); acc -= STEP; }
+  const S = net.snap; if (!S) return;
+  const age = Math.min(0.25, (now - net.snapAt) / 1000), k = 1 - Math.exp(-dt * 18);
+  Sx.ball.set(S.b[0] + S.b[3] * age, Math.max(BR, S.b[1] + S.b[4] * age - 0.5 * G * 0.8 * age * age), S.b[2] + S.b[5] * age);
+  if (ball.pos.distanceToSquared(Sx.ball) > 400) ball.pos.copy(Sx.ball); else ball.pos.lerp(Sx.ball, k);
+  ball.vel.set(S.b[3], S.b[4], S.b[5]);
+  cars.forEach((c, i) => {
+    const e = S.c[i]; if (!e || c === player) return;
+    const dead = !!(e[16] & 8); c.dead = dead ? 1 : 0;
+    const tx = e[0] + e[3] * age, ty = Math.max(0, e[1] + e[4] * age), tz = e[2] + e[5] * age;
+    if (Math.hypot(tx - c.pos.x, ty - c.pos.y, tz - c.pos.z) > 15) c.pos.set(tx, ty, tz); else { c.pos.x += (tx - c.pos.x) * k; c.pos.y += (ty - c.pos.y) * k; c.pos.z += (tz - c.pos.z) * k; }
+    c.vel.set(e[3], e[4], e[5]); c.yaw = lerpAng(c.yaw, e[6], k); c.pitch += (e[7] - c.pitch) * k; c.surf = e[8];
+    c.up.lerp(t1.set(e[9], e[10], e[11]), k).normalize(); c.fwd.lerp(t1.set(e[12], e[13], e[14]), k).normalize();
+    c.boosting = !!(e[16] & 1); c.onGround = !!(e[16] & 2); c.input.slide = !!(e[16] & 4); c.flipT = e[17]; c.flipF = e[18]; c.flipS = e[19]; c.boost = e[15];
+  });
+  for (let i = 0, n = Math.min(4, Math.round(dt / STEP)); i < n; i++) for (const c of cars) carFx(c);
+}
+/* once per frame while online: the host sends the match, a guest sends its controls */
+function netPump(now) {
+  if (!net.active || !net.started) return;
+  if (net.host) { if (now - net.lastSnap >= 33) { net.lastSnap = now; netSend(makeSnapshot()); } }
+  else {
+    const I = player.input;
+    if (I.jump && !net.prevJ) net.jn++; net.prevJ = I.jump;
+    net.seq++;
+    net.hist.push({ q: net.seq, x: player.pos.x, y: player.pos.y, z: player.pos.z, vx: player.vel.x, vy: player.vel.y, vz: player.vel.z });
+    if (net.hist.length > 180) net.hist.shift();
+    netSend({ t: 'in', q: net.seq, th: r2(I.throttle), st: r2(I.steer), pi: r2(I.pitch), j: I.jump ? 1 : 0, jn: net.jn, b: I.boost ? 1 : 0, sl: I.slide ? 1 : 0 });
+  }
+}
+/* the host's one-off events, played on every screen */
+function applyFx(m) {
+  switch (m.k) {
+    case 'feed': feed(m.w, m.tm, m.x); break;
+    case 'flash': flash(m.x, m.c, m.ms); if (/^\d$/.test(m.x)) sfx.beep(false); else if (m.x === 'GO') sfx.beep(true); break;
+    case 'goal': {
+      burst(ball.pos, TEAM_COL[m.team], 320, 34); cheer(1); sfx.goal();
+      flash(m.team === player.team ? 'GOAL!' : 'THEY SCORE', m.team === player.team ? 'var(--teal)' : 'var(--coral)', 2000);
+      for (const c of cars) if (c.surf > 0 && c !== player) c.surf = 0;
+      break;
+    }
+    case 'demo': {
+      const v = cars[m.i], by = cars[m.by]; if (!v) break;
+      burst(t3.copy(v.pos).add(UP), TEAM_COL[v.team], 140, 22); burst(t3, 0xffb340, 60, 14); noise(0.6, 0.5, 900); tone(70, 0.6, 'sawtooth', 0.35, 30); cheer(0.6);
+      if (v === player) flash('DEMOLISHED', 'var(--coral)', 1400); else if (by === player) flash('DEMOLITION!', 'var(--gold)', 1400);
+      break;
+    }
+    case 'hit': sfx.hit(m.p); break;
+    default:
+  }
+}
+
+/* ----- connecting ----- */
+function onMsg(text) { $('onMsg').textContent = text || ''; }
+function showOnline(which) {
+  $('onAuth').hidden = which !== 'auth'; $('onJoin').hidden = which !== 'join'; $('onRoom').hidden = which !== 'room';
+  $('online').hidden = false; $('menu').hidden = true;
+}
+function closeOnline() { $('online').hidden = true; if (!inMatch()) $('menu').hidden = false; }
+function openOnline(code) {
+  if (!signedIn()) { onMsg(''); showOnline('auth'); return; }
+  if (net.ws) { showOnline('room'); drawLobby(); return; }
+  onMsg(''); showOnline('join');
+  if (code) { $('onCodeIn').value = code; joinRoom(code, false); }
+}
+function connectRoom(code, create) {
+  net.code = code; net.pendingCreate = create; onMsg(create ? 'Creating your room...' : 'Joining ' + code + '...');
+  let ws;
+  try { ws = new WebSocket(ARENA_URL + '/arena/' + code + (create ? '?create=1' : ''), ['deluxe.' + D.token()]); } catch (e) { onMsg('Could not connect.'); return; }
+  net.ws = ws; let opened = false;
+  ws.onopen = () => { opened = true; };
+  ws.onmessage = ev => { try { onNetMessage(JSON.parse(ev.data)); } catch (e) { /* a malformed message is ignored */ } };
+  ws.onerror = () => {};
+  ws.onclose = () => {
+    if (net.ws !== ws) return;
+    net.ws = null; const was = net.active;
+    net.active = false; net.host = false; net.lobby = null;
+    $('pingUi').hidden = true;
+    if (net.started) { net.started = false; restoreOffline(); state = 'menu'; $('menu').hidden = false; syncTouchUi(); }
+    showOnline('join'); onMsg(opened ? (was ? 'You were disconnected from the room.' : '') : 'Could not reach the Deluxe game server. Check your connection and try again.');
+  };
+}
+function joinRoom(code, create) {
+  code = String(code || '').toUpperCase().replace(/[^A-HJ-NP-Z]/g, '');
+  if (code.length !== 5) { onMsg('Room codes are 5 letters.'); return; }
+  connectRoom(code, create);
+}
+function leaveRoom() {
+  const ws = net.ws; net.ws = null; net.active = false; net.host = false; net.lobby = null; $('pingUi').hidden = true;
+  if (ws) try { ws.close(); } catch (e) {}
+  if (net.started) { net.started = false; restoreOffline(); state = 'menu'; syncTouchUi(); }
+  showOnline(signedIn() ? 'join' : 'auth'); onMsg('');
+}
+function onNetMessage(m) {
+  switch (m.t) {
+    case 'denied': onMsg(m.reason || 'Could not join that room.'); { const ws = net.ws; net.ws = null; try { ws.close(); } catch (e) {} } showOnline('join'); break;
+    case 'hello': net.id = m.id; net.host = m.host; net.active = true; break;
+    case 'lobby': {
+      net.lobby = m; const me = m.players.find(p => p.id === net.id); net.host = !!(me && me.host);
+      if (net.started && !m.started) { net.started = false; restoreOffline(); state = 'menu'; syncTouchUi(); $('menu').hidden = true; }
+      if (!net.started) { showOnline('room'); drawLobby(); }
+      break;
+    }
+    case 'start': beginOnline(m.roster, m.cfg); break;
+    case 'in': if (net.host) onRemoteInput(m); break;
+    case 'snap': if (!net.host && net.started) onSnapshot(m); break;
+    case 'fx': if (!net.host && net.started) applyFx(m); break;
+    case 'left': { const c = cars.find(o => o.pid === m.id); if (c) { c.remote = false; c.pid = null; c.name = BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)]; if (c.tag) c.tag.textContent = c.name; feed(null, c.team, 'A player left. A bot takes over.'); } break; }
+    case 'closed': onMsg(m.reason); break;
+    case 'pong': net.ping = Math.round(performance.now() - m.ts); $('pingTxt').textContent = net.host ? 'Host' : net.ping + ' ms'; break;
+    default:
+  }
+}
+function beginOnline(roster, cfg) {
+  initAudio();
+  difficulty = cfg.diff; matchLen = cfg.len; buildMap(cfg.map);
+  buildOnlineCars(roster);
+  $('online').hidden = true; $('menu').hidden = true; $('mFinal').hidden = true;
+  $('feed').innerHTML = ''; ball.lastTouch = null; net.snap = null; net.hist.length = 0; net.n = 0; net.seq = 0; net.jn = 0; net.started = true;
+  score[0] = score[1] = 0; overtime = false; clockT = matchLen; paused = false; $('pause').hidden = true;
+  $('pingUi').hidden = false; $('pingTxt').textContent = net.host ? 'Host' : '...';
+  for (const c of cars) c.speedMul = (c === player || c.pid) ? 1 : SKILL[difficulty].speed;
+  if (net.host) for (const c of cars) if (c !== player) feed(null, c.team, c.name + ' joined the match');  // guests get these from the host
+  if (net.host) kickoff(); else { state = 'countdown'; cdT = 3; ball.visible = true; syncTouchUi(); }
+  updateHud();
+}
+function drawLobby() {
+  const L = net.lobby; if (!L) return;
+  $('onCode').textContent = net.code;
+  const me = L.players.find(p => p.id === net.id), size = Math.max(1, ...[0, 1].map(t => L.players.filter(p => p.team === t).length));
+  const box = $('onPlayers'); box.innerHTML = '';
+  for (const t of [0, 1]) {
+    const col = document.createElement('div'); col.className = 'onteam t' + t;
+    const h = document.createElement('h3'); h.textContent = t ? 'Orange' : 'Blue'; col.append(h);
+    const mine = L.players.filter(p => p.team === t);
+    for (const p of mine) { const d = document.createElement('div'); d.textContent = p.name + (p.host ? ' (host)' : '') + (p.id === net.id ? ' (you)' : ''); if (p.id === net.id) d.className = 'me'; col.append(d); }
+    for (let i = mine.length; i < size; i++) { const d = document.createElement('div'); d.className = 'bot'; d.textContent = 'Bot'; col.append(d); }
+    if (me && me.team !== t && mine.length < 3) { const b = document.createElement('button'); b.textContent = 'Join ' + (t ? 'orange' : 'blue'); b.onclick = () => netSend({ t: 'team', team: t }); col.append(b); }
+    box.append(col);
+  }
+  for (const [id, key] of [['onMap', 'map'], ['onLen', 'len'], ['onDiff', 'diff']]) for (const b of $(id).children) { b.classList.toggle('on', String(L.cfg[key]) === b.dataset.v); b.disabled = !net.host; }
+  $('onStart').hidden = !net.host;
+  $('onNote').textContent = net.host
+    ? (L.players.length > 1 ? size + 'v' + size + ' with bots in the empty spots. Start when everyone is in.' : 'Share the code or invite link. You can also start now and play with bots.')
+    : 'Waiting for the host to start. Bots fill the empty spots.';
+}
+for (const [id, key, num] of [['onMap', 'map', false], ['onLen', 'len', true], ['onDiff', 'diff', false]]) {
+  $(id).addEventListener('click', e => { const b = e.target.closest('button'); if (!b || !net.host) return; netSend({ t: 'cfg', cfg: { [key]: num ? +b.dataset.v : b.dataset.v } }); });
+}
+$('onlineBtn').onclick = () => openOnline();
+$('onlineBtn').hidden = !D;  // online play needs Deluxe Main (it is not available where deluxe.js cannot load)
+$('onSignIn').onclick = () => D && D.signIn();
+$('onCreate').onclick = () => { const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; let c = ''; for (let i = 0; i < 5; i++) c += A[Math.floor(Math.random() * A.length)]; connectRoom(c, true); };
+$('onJoinBtn').onclick = () => joinRoom($('onCodeIn').value, false);
+$('onCodeIn').addEventListener('keydown', e => { if (e.key === 'Enter') joinRoom($('onCodeIn').value, false); e.stopPropagation(); });
+$('onCodeIn').addEventListener('keyup', e => e.stopPropagation());
+$('onStart').onclick = () => netSend({ t: 'start' });
+$('onLeave').onclick = leaveRoom;
+$('onClose').onclick = () => { if (net.ws) leaveRoom(); closeOnline(); };
+$('leaveBtn').onclick = leaveRoom;
+$('onCopy').onclick = () => {
+  const link = location.origin + location.pathname + '?room=' + net.code;
+  const done = () => { $('onCopy').textContent = 'Copied'; setTimeout(() => { $('onCopy').textContent = 'Copy invite link'; }, 1800); };
+  try { navigator.clipboard.writeText(link).then(done, () => onMsg(link)); } catch (e) { onMsg(link); }
+};
+setInterval(() => { if (net.ws && net.ws.readyState === 1) netSend({ t: 'ping', ts: performance.now() }); }, 2000);
+{ // an invite link (?room=ABCD) opens the room once the sign-in has loaded
+  let code = ''; try { code = (new URLSearchParams(location.search).get('room') || '').toUpperCase(); } catch (e) {}
+  if (/^[A-HJ-NP-Z]{5}$/.test(code) && D) D.ready.then(() => openOnline(code), () => openOnline(code));
+}
+
 /* Automatic quality: if frames stay slow for a few seconds, draw at a lower resolution, then hide the crowd. */
 function checkQuality(dt) {
   if (quality === 0 || document.hidden) return;
@@ -1535,10 +1871,11 @@ function frame(now) {
   requestAnimationFrame(frame);
   const dt = Math.min(0.1, (now - last) / 1000); last = now;
   if (!paused) {
-    acc += dt;
-    while (acc >= STEP) { tick(STEP); acc -= STEP; }
+    if (net.active && !net.host && net.started) guestFrame(dt, now);
+    else { acc += dt; while (acc >= STEP) { tick(STEP); acc -= STEP; } }
     updateVisuals(dt, now / 1000);
     checkQuality(dt);
+    netPump(now);
   }
   renderer.render(scene, camera);
 }

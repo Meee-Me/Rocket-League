@@ -14,6 +14,23 @@ It lives at **https://rocket-league-blond.vercel.app** (Vercel deploys the `main
 lets it sign in only from that address. If the address changes, change it in Deluxe Main's
 `worker/apps.js` and `public/deluxe.js`.
 
+## Online play
+
+**Play online** on the start screen opens a lobby for people signed in with Deluxe Main.
+
+- **Create room** gives a 5-letter code and an invite link. Friends tap the link, or type the code under *Join*.
+- Pick blue or orange, and the host chooses the stadium, match length and the bots that fill empty spots (up to 3 per team, 6 people).
+- The host starts the match. Everyone is named by their Deluxe account. When it ends, everyone goes back to the lobby.
+
+How it works: the host's browser runs the match and sends 30 snapshots a second through a room on the Deluxe server
+(`wss://deluxe-drive.deluxelordd.workers.dev/arena/CODE`, a Durable Object in the deluxe-drive repository). Everyone else sends their
+controls. Each player's own car is driven on their own screen, so it answers at once, and the host's version corrects it
+gently if the two drift apart. Other cars and the ball are smoothed between snapshots.
+
+Good to know: the host must keep the game tab open and in front, and a host on a slow connection is slow for everyone.
+Matches cannot be paused. If the host leaves the match ends. Your own car does not bump into other cars until the host's
+next update arrives, so contact looks a moment late for guests.
+
 ## Controls
 
 | Action | Keyboard | Gamepad |
