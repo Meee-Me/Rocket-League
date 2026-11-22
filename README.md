@@ -49,6 +49,8 @@ the crowd automatically to stay smooth.
 
 ## Features
 
+- Blue vs orange teams, chevron markings on the pitch, a glass-roofed stadium with floodlight rows, name tags over the other cars, and a feed with goal messages and bot quick chat
+
 - 1v1, 2v2 and 3v3. Bot teammates take turns: the closest one attacks, the others cover the goal
 - Powerslide (E, gamepad X or LB, DRIFT on phones) for tight turns
 - Demolitions: hit an opponent at near top speed and they explode, then respawn at their goal after 3 seconds
