@@ -853,13 +853,51 @@ const SKILL = {
   ace: { speed: 1, boostFloor: 5, jump: 1, aim: 4, lead: 1 }
 };
 let difficulty = 'pro';
+
+/* Where the ball will be: its path for the next 2.5 s (bounces included), once per tick for every bot. */
+let pred = [], predGoal = null;
+function predictBall() {
+  pred = []; predGoal = null;
+  if (!ball.visible) return;
+  let x = ball.pos.x, y = ball.pos.y, z = ball.pos.z, vx = ball.vel.x, vy = ball.vel.y, vz = ball.vel.z;
+  const dt = 0.025;
+  for (let i = 1; i <= 100; i++) {
+    vy -= G * 0.8 * dt; x += vx * dt; y += vy * dt; z += vz * dt;
+    if (y < BR) { y = BR; if (vy < 0) { vy = -vy * MAP.bounce; if (vy < 1.5) vy = 0; } }
+    if (y > A.h - BR) { y = A.h - BR; vy = -Math.abs(vy) * 0.7; }
+    if (Math.abs(x) > A.hx - BR) { x = Math.sign(x) * (A.hx - BR); vx = -vx * 0.75; }
+    if (Math.abs(z) > A.hz - BR) {
+      const mouth = Math.abs(x) < A.gw / 2 - BR * 0.6 && y < A.gh - BR * 0.6;
+      if (mouth) { if (!predGoal && Math.abs(z) > A.hz + BR * 0.5) predGoal = { t: i * dt, x, side: Math.sign(z) }; }
+      else if (Math.abs(z) <= A.hz) { z = Math.sign(z) * (A.hz - BR); vz = -vz * 0.75; }
+    }
+    if (i % 4 === 0) pred.push({ t: i * dt, x, y, z });
+    if (predGoal) break;
+  }
+  if (predGoal && !pred.length) pred.push({ t: predGoal.t, x: predGoal.x, y, z });
+}
+/* the first moment this car could get to the ball's path */
+function interceptPoint(c) {
+  if (!pred.length) return ball.pos;
+  const sp = c.boost > 8 ? 36 : 28;
+  for (const q of pred) if (Math.hypot(q.x - c.pos.x, q.z - c.pos.z) / sp <= q.t) return q;
+  return pred[pred.length - 1];
+}
+function nearestPad(c, ownZ) {  // nearest ready boost pad, on our half when ownZ is given
+  let best = null, bestD = Infinity;
+  for (const pd of pads) {
+    if (pd.t > 0 || (ownZ && pd.z * Math.sign(ownZ) < -4)) continue;
+    const d = Math.hypot(pd.x - c.pos.x, pd.z - c.pos.z); if (d < bestD) { bestD = d; best = pd; }
+  }
+  return best;
+}
 function botThink(c, sk) {
   const I = c.input;
   const own = c.team === 0 ? -A.hz : A.hz, att = -own, sgn = Math.sign(att);
   const b = ball.pos, bv = ball.vel;
   const d0 = Math.hypot(b.x - c.pos.x, b.z - c.pos.z);
-  const tp = Math.min(1.3, d0 / 32) * sk.lead;
-  const bx = clamp(b.x + bv.x * tp, -A.hx + 3, A.hx - 3), bz = clamp(b.z + bv.z * tp, -A.hz + 3, A.hz - 3);
+  const ip = interceptPoint(c);  // skill scales how far ahead of the ball it aims
+  const bx = clamp(b.x + (ip.x - b.x) * sk.lead, -A.hx + 3, A.hx - 3), bz = clamp(b.z + (ip.z - b.z) * sk.lead, -A.hz + 3, A.hz - 3);
   let tx, tz, urgent = false, shooting = false;
   const wrongSide = (c.pos.z - bz) * sgn > 1.5;
   if (wrongSide) {
@@ -890,10 +928,16 @@ function botThink(c, sk) {
     const back = cars.filter(o => o.team === c.team && !o.att).indexOf(c);
     tx = b.x * 0.4 + (back ? (b.x > 0 ? -10 : 10) : 0); tz = own + (b.z - own) * (back ? 0.15 : 0.35); urgent = false;
     if (c.boost < 40) {  // nearest ready boost pad on our half
-      let bestPad = null, bestD = Infinity;
-      for (const pd of pads) { if (pd.t > 0 || (pd.z - 0) * Math.sign(own) < -4) continue; const d = Math.hypot(pd.x - c.pos.x, pd.z - c.pos.z); if (d < bestD) { bestD = d; bestPad = pd; } }
-      if (bestPad) { tx = bestPad.x; tz = bestPad.z; fetching = true; }
+      const pd = nearestPad(c, own);
+      if (pd) { tx = pd.x; tz = pd.z; fetching = true; }
     }
+  }
+  // the ball is heading for our goal: get in front of it, and clear it once it is close
+  const threatened = predGoal && predGoal.side === Math.sign(own) && predGoal.t < 2.2;
+  if (threatened && (support || wrongSide)) {
+    tx = clamp(predGoal.x, -(A.gw / 2 - 3), A.gw / 2 - 3); tz = own + sgn * 5;
+    urgent = true; shooting = false; fetching = false;
+    if (d0 < 12 || Math.hypot(ip.x - c.pos.x, ip.z - c.pos.z) < 10) { tx = bx; tz = bz; }
   }
   tx = clamp(tx, -A.hx + 5, A.hx - 5); tz = clamp(tz, -A.hz + 5, A.hz - 5);  // never aim outside the arena
   const want = Math.atan2(tx - c.pos.x, tz - c.pos.z);
@@ -1323,6 +1367,7 @@ function updateBoostUi() {
 
 function tick(dt) {
   const attract = state === 'menu' || state === 'over';
+  predictBall();
   if (!attract) readPlayer();
   assignRoles();
   for (const c of cars) if (c !== player || attract) botThink(c, attract ? SKILL.pro : SKILL[difficulty]);
